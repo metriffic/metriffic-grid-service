@@ -1,7 +1,7 @@
-import WebSocket from 'ws';
-import ApolloClient from "apollo-client";
-import { InMemoryCache } from "apollo-cache-inmemory";
+import ApolloClient from 'apollo-client';
+import { InMemoryCache } from 'apollo-cache-inmemory';
 import { WebSocketLink } from 'apollo-link-ws';
+import WebSocket from 'ws';
 import gql from 'graphql-tag';
 
 import { SubscriptionClient } from "subscriptions-transport-ws";
