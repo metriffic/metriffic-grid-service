@@ -28,23 +28,37 @@ class Metriffic
         })
         
         this.start_platform_grids();
-        //this.subscribe_to_gql_updates();
+        this.subscribe_to_gql_updates();
         this.add_existing_sessions();
     }
 
     on_board_added(data)
     {
-        console.log('SUBSCRIPTION: ', ret.data.boardAdded);
+        console.log('SUBSCRIPTION: ', data.boardAdded);
     }
 
     on_session_added(data)
     {
-        console.log('SUBSCRIPTION: ', ret.data.sessionAdded);
+        console.log('SUBSCRIPTION: ', data);
+        
+        const grid = this.grids[data.platform.id];
+        const command = JSON.parse(data.command);
+        const datasets = JSON.parse(data.datasets)
+        data.server_docker = 'ubuntu-provider-collector';
+        data.docker_registry = "192.168.86.244:5000";
+        data.user = 'vazkus';
+        data.project = 'test-project';
+        data.session_name = data.name;
+        data.command = command;
+        data.datasets = datasets,
+        grid.submit_session(data);
     }
 
 
     subscribe_to_gql_updates()
     {
+        const metriffic = this;
+
         const subscribe_boards = gql`
         subscription boardAdded{ 
             boardAdded { hostname platform{id}}
@@ -71,7 +85,7 @@ class Metriffic
             query: subscribe_sessions,
         }).subscribe({
             next(ret) {
-                on_session_added(ret.data);
+                metriffic.on_session_added(ret.data.sessionAdded);
             },
             error(err) {
                 console.log('ERROR: failes to subscribe', err);
@@ -129,17 +143,7 @@ class Metriffic
         }).then(function(ret) {
             console.log('NEXT', ret.data);
             ret.data.allSessions.forEach(params => {
-                const grid = metriffic.grids[params.platform.id];
-                const command = JSON.parse(params.command);
-                const datasets = JSON.parse(params.datasets)
-                params.server_docker = 'ubuntu-provider-collector';
-                params.docker_registry = "192.168.86.244:5000";
-                params.user = 'vazkus';
-                params.project = 'test-project';
-                params.session_name = params.name;
-                params.command = command;
-                params.datasets = datasets,
-                grid.submit_session(params);
+                metriffic.on_session_added(params)
             });
         }).catch(function(err){
             console.log('ERROR', err);
