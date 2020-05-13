@@ -12,7 +12,7 @@ function board_str(board)
 
 function session_str(session) 
 {
-    return session.params.name.brightBlue;
+    return (session.params.name+'#'+session.params.id).brightBlue;
 }
 
 function container_str(container_id) 
@@ -27,7 +27,8 @@ function time_str(timestamp)
 
 function error_str(msg) 
 {
-    return msg.bold.brightRed
+    const pmsg = (msg);
+    return pmsg.bold;
 }
 
 

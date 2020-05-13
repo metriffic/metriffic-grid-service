@@ -63,7 +63,7 @@ class Session
     start_new_container(docker, session, params, volumes, bindings)
     {
         console.log(`[S] CCC`);
-        const pc_container_name = 'pc.'+params.session_name;
+        const pc_container_name = 'pc.'+params.name;
         docker.createContainer({
                 Image: params.docker_registry + '/' + params.server_docker,
                 Volumes: volumes,
@@ -91,7 +91,7 @@ class Session
 
         const [folder, output_folder] = this.create_workspace(params.user, 
                                                               params.project, 
-                                                              params.session_name);
+                                                              params.name);
         const input_folder = params.datasets;
         console.log(`[S] created folders: ${folder}, ${output_folder}`);
 
@@ -120,7 +120,7 @@ class Session
         console.log('[S] starting the server-side docker for the session...');
         const docker = new dockerode({ socketPath: '/var/run/docker.sock' });
         const session = this;
-        const pc_container_name = 'pc.'+params.session_name;
+        const pc_container_name = 'pc.'+params.name;
 
         return new Promise(function(resolve, reject){ 
             docker.listContainers({
@@ -170,6 +170,7 @@ class Session
     async stop() 
     {  
         console.log('[S] stopping the session');
+        //TBD: this.server container can be undefined...
         this.server_container.stop()
         .then(function(data) {
             console.log('[S] stopped!');

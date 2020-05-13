@@ -65,13 +65,12 @@ class Grid
     }
     unregister_board(brd) 
     {
-        const updated_boards = this.boards.filter(b => b.uid != brd.uid);
+        const updated_boards = this.boards.filter(b => b.hostname != brd.hostname);
         if(updated_boards.length < this.boards.length) {
             console.log(`[G] unregistered board[${LOG_BOARD(brd)}], ` +
                         `total ${updated_boards.length} boards.`);
         } else {
-            console.log(ERROR(`[G] error: board[${LOG_BOARD(brd)}] requested to be `,
-                        `unregistered can not be found!`));
+            console.log(ERROR(`[G] error: board[${LOG_BOARD(brd)}] requested to be unregistered can not be found!`));
         }
         this.boards = updated_boards;
     }
@@ -98,19 +97,18 @@ class Grid
     dismiss_session(session) 
     {
         // remove from the job queue
-        this.running_jobs = this.running_jobs.filter(rj => rj.session.params.uid != session.params.uid);
+        this.running_jobs = this.running_jobs.filter(rj => rj.session.params.id != session.params.id);
 
         // stop the session (it's container, etc)
         session.stop();
 
         // remove from the list of subscribed jobs...
-        const updated_subscribers = this.subscribers.filter(s => s.params.uid != session.params.uid);
+        const updated_subscribers = this.subscribers.filter(s => s.params.id != session.params.id);
         if(updated_subscribers.length < this.subscribers.length) {
             console.log(`[G] unsubscribed session[${LOG_SESSION(session)}], ` +
                         `total ${updated_subscribers.length} subscribers.`);
         } else {
-            console.log(ERROR(`[G] error: session[${LOG_SESSION(session)}] requested to be`,
-                        `unsubscribed can not be found!`));
+            console.log(ERROR(`[G] error: session[${LOG_SESSION(session)}] requested to be unsubscribed can not be found!`));
         }
         this.subscribers = updated_subscribers;
     }
@@ -159,8 +157,7 @@ class Grid
             }
         });
         if(update_running_jobs.length == this.running_jobs.length) {
-            console.log(ERROR(`[G] error: completed job[${LOG_JOB(job)}] can not be `,
-                        `found in the list of running jobs`));
+            console.log(ERROR(`[G] error: completed job[${LOG_JOB(job)}] can not be found in the list of running jobs`));
         }
         this.running_jobs = update_running_jobs;
 
