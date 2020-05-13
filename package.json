@@ -1,9 +1,38 @@
 {
+  "name": "metriffic-backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
   "dependencies": {
+    "apollo-cache-inmemory": "^1.6.5",
+    "apollo-client": "^2.6.8",
+    "apollo-link-ws": "^1.0.20",
     "colors": "^1.4.0",
     "dockerode": "^3.2.0",
+    "graphql": "^15.0.0",
+    "graphql-tag": "^2.10.3",
     "shortid": "^2.2.15",
-    "uuid": "^8.0.0"
+    "subscriptions-transport-ws": "^0.9.16",
+    "uuid": "^8.0.0",
+    "ws": "^7.3.0"
   },
-  "start": "nodejs run.js"
+  "scripts": {
+    "reset_db": "./cleanup.sh",
+    "start": "nodemon --exec babel-node application.js",
+    "build": "nodemon --exec babel-node builder.js"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.8.4",
+    "@babel/core": "^7.9.6",
+    "@babel/node": "^7.8.7",
+    "@babel/preset-env": "^7.9.6",
+    "nodemon": "^2.0.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://metriffic-vazk@bitbucket.org/metriffic-team/metriffic-backend.git"
+  },
+  "author": "",
+  "homepage": "https://bitbucket.org/metriffic-team/metriffic-backend#readme",
+  "description": ""
 }

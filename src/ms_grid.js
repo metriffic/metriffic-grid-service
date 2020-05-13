@@ -1,23 +1,28 @@
-const Job = require('./job');
+const Job = require('./ms_job');
+const Session = require('./ms_session').Session;
 
-const LOG_JOB = require('./logging').LOG_JOB
-const LOG_BOARD = require('./logging').LOG_BOARD
-const LOG_SESSION = require('./logging').LOG_SESSION
-const ERROR = require('./logging').ERROR
+const LOG_JOB = require('./ms_logging').LOG_JOB
+const LOG_BOARD = require('./ms_logging').LOG_BOARD
+const LOG_SESSION = require('./ms_logging').LOG_SESSION
+const ERROR = require('./ms_logging').ERROR
 
 class Grid 
 {
     constructor(params) 
     {
-        this.platform = params.platform;
+        this.name = params.name;
+        this.id = params.id;
         
         this.boards = [];
 
         this.subscribers = [];
         this.running_jobs = [];
         
-        this.tick_ms = params.tick_ms;
-        this.tick = null;
+    }
+
+    job_complete_cb(grid, job) 
+    {
+        grid.on_job_complete(job);
     }
     
     select_free_board() 
@@ -40,7 +45,6 @@ class Grid
     stop() 
     {
         console.log('[G] stoping grid');
-        clearInterval(this.tick);
         // stop all running jobs
         this.running_jobs.forEach(function(rj) {
             rj.stop();
@@ -55,6 +59,8 @@ class Grid
 
     register_board(brd) 
     {
+        console.log(`[G] registered board[${LOG_BOARD(brd)}], ` +
+                    `total ${this.boards.length} boards.`);
         this.boards.push(brd);
     }
     unregister_board(brd) 
@@ -70,12 +76,18 @@ class Grid
         this.boards = updated_boards;
     }
     
-    subscribe_session(session) 
+    submit_session(session_params) 
     {
+
+        session_params.job_complete_cb = (job) => this.job_complete_cb(this, job);
+
+        const session = new Session(session_params);
+
         const grid = this;
         grid.subscribers.push(session);
         console.log(`[G] subscribed session[${LOG_SESSION(session)}], ` +
                     `total ${grid.subscribers.length} subscribers.`);
+        
         // create the test workspace, controller container, etc...
         session.start().then(function(data) {
             grid.schedule();
@@ -83,7 +95,7 @@ class Grid
         });
     }
 
-    unsubscribe_session(session) 
+    dismiss_session(session) 
     {
         // remove from the job queue
         this.running_jobs = this.running_jobs.filter(rj => rj.session.params.uid != session.params.uid);
@@ -154,7 +166,7 @@ class Grid
 
         if(job.session.is_done()) {
             console.log(`[G] all jobs of session[${LOG_SESSION(job.session)}] are done!`);
-            this.unsubscribe_session(job.session);
+            this.dismiss_session(job.session);
         }
 
         this.schedule();

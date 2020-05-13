@@ -1,31 +1,31 @@
 const colors = require('colors');
 
-job_str = function(job) 
+function job_str(job) 
 {
     return job.params.uid.green;
 }
 
-board_str = function(board) 
+function board_str(board) 
 {
     return board.hostname.yellow;
 }
 
-session_str = function(session) 
+function session_str(session) 
 {
-    return session.params.uid.brightBlue;
+    return session.params.name.brightBlue;
 }
 
-container_str = function(container_id) 
+function container_str(container_id) 
 {
     return container_id.underline.bold;
 }
-time_str = function(timestamp) 
+function time_str(timestamp) 
 {
     const dt = new Date(timestamp);
     return dt.toLocaleString().bold.brightWhite;
 }
 
-error_str = function(timestamp) 
+function error_str(msg) 
 {
     return msg.bold.brightRed
 }

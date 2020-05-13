@@ -1,5 +1,5 @@
 const dockerode = require('dockerode');
-const LOG_BOARD = require('./logging').LOG_BOARD;
+const LOG_BOARD = require('./ms_logging').LOG_BOARD;
 
 class Board 
 {

@@ -1,10 +1,10 @@
 const dockerode = require('dockerode');
 const fs = require('fs');
 
-const LOG_JOB = require('./logging').LOG_JOB
-const LOG_BOARD = require('./logging').LOG_BOARD
-const LOG_CONTAINER = require('./logging').LOG_CONTAINER
-const ERROR = require('./logging').ERROR
+const LOG_JOB = require('./ms_logging').LOG_JOB
+const LOG_BOARD = require('./ms_logging').LOG_BOARD
+const LOG_CONTAINER = require('./ms_logging').LOG_CONTAINER
+const ERROR = require('./ms_logging').ERROR
 
 class Job 
 {
@@ -74,7 +74,7 @@ class Job
         }).then(function(data){
             console.log(`[J] container cleanup for board[${LOG_BOARD(board)}] is done.`);
             return board.docker.createContainer({
-                Image: '192.168.86.244:5000/ubuntu-build',
+                Image: '192.168.86.244:5000/ubuntu-run',
                 name: 'brd.bladabla',
                 Cmd: ['/bin/bash'],
                 Tty: true,
@@ -118,8 +118,10 @@ class Job
                 });
             });
 
-        }).catch(function() {
-            console.log(ERROR('[J] failed to exec the container...'));
+        }).catch(function(err) {
+            console.log(ERROR(`[J] failed to exec the container for job[${LOG_JOB(job)}] on board[${LOG_BOARD(board)}]...`));
+            // TBD: possible error: err { Error: (HTTP code 400) unexpected - No exec command specified 
+            console.log('err', err);
         }).finally(function() {
             job.stop_container();
         });
