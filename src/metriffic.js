@@ -37,6 +37,11 @@ class Metriffic
         console.log('SUBSCRIPTION: ', data.boardAdded);
     }
 
+    on_board_removed(data)
+    {
+        // TBD
+    }
+
     on_session_added(data)
     {
         console.log('SUBSCRIPTION: ', data);
@@ -54,14 +59,18 @@ class Metriffic
         grid.submit_session(data);
     }
 
+    on_session_removed(data)
+    {
+        // TBD
+    }
 
     subscribe_to_gql_updates()
     {
         const metriffic = this;
 
         const subscribe_boards = gql`
-        subscription boardAdded{ 
-            boardAdded { hostname platform{id}}
+        subscription subsBoard { 
+            subsBoard { mutation data {hostname platform {id name}}}
         }`;
             
         // subscribe to board updates
@@ -69,7 +78,15 @@ class Metriffic
             query: subscribe_boards,
         }).subscribe({
             next(ret) {
-                metriffic.on_board_added(ret.data);
+                if(ret.data.mutation === "ADDED") {
+                    metriffic.on_board_added(ret.data.data);
+                } else
+                if(ret.data.mutation === "REMOVED") {
+                    // TBD
+                    //metriffic.on_board_removed(ret.data);
+                } else {
+                    console.log(ERROR(`[M] error: received unknown board subscription data: ${ret.data}`));
+                }
             },
             error(err) {
                 console.log('ERROR: failed to subscribe', err);
@@ -78,14 +95,22 @@ class Metriffic
 
         // subscribe to session updates
         const subscribe_sessions = gql`
-        subscription sessionAdded{ 
-            sessionAdded { id, name, platform{id}, max_jobs, datasets, command }        
+        subscription subsSession { 
+            subsSession { mutation data {id, name, type, user{id}, platform{id}, max_jobs, datasets, command }}
         }`;
         this.gql_client.subscribe({
             query: subscribe_sessions,
         }).subscribe({
             next(ret) {
-                metriffic.on_session_added(ret.data.sessionAdded);
+                if(ret.data.mutation === "ADDED") {
+                    metriffic.on_session_added(ret.data.data.sessionAdded);
+                } else
+                if(ret.data.mutation === "REMOVED") {
+                    // TBD
+                    //metriffic.on_session_removed(ret.data);
+                } else {
+                    console.log(ERROR(`[M] error: received unknown board subscription data: ${ret.data}`));
+                }
             },
             error(err) {
                 console.log('ERROR: failes to subscribe', err);
