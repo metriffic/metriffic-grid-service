@@ -11,6 +11,7 @@
     "dockerode": "^3.2.0",
     "graphql": "^15.0.0",
     "graphql-tag": "^2.10.3",
+    "jsonwebtoken": "^8.5.1",
     "shortid": "^2.2.15",
     "subscriptions-transport-ws": "^0.9.16",
     "uuid": "^8.0.0",

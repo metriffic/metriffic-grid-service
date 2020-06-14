@@ -1,27 +1,59 @@
 const Job     = require('./ms_job').Job;
 const Board   = require('./ms_board').Board;
 const Grid = require('./ms_grid').Grid;
+
+const fs   = require('fs');
+const jwt   = require('jsonwebtoken');
+
 import WebSocket from 'ws';
 import ApolloClient from "apollo-client";
 import { InMemoryCache } from "apollo-cache-inmemory";
 import { WebSocketLink } from 'apollo-link-ws';
+import { SubscriptionClient } from "subscriptions-transport-ws";
 import gql from 'graphql-tag';
 
-import { SubscriptionClient } from "subscriptions-transport-ws";
+// use 'utf8' to get string instead of byte array  (512 bit key)
+
+
 
 class Metriffic 
 {       
     constructor(params) 
     {
+        var options = {
+            algorithm:  "RS256"    
+        };
+        const grid_manager_private_key  = fs.readFileSync('./grid_service_private.key', 'utf8');
+        const token = jwt.sign({who: "grid_service"}, grid_manager_private_key, options);
+        
         this.grids = {};
 
         const wsClient = new SubscriptionClient(
             params.WS_ENDPOINT,
-            { reconnect: true },
+            {
+                reconnect: true,
+                connectionParams: () => { 
+                    return { FOO: "FOO"}; 
+                  },
+            },
             WebSocket
         )
         const link = new WebSocketLink(wsClient)
+
+        // https://github.com/apollographql/apollo-link/issues/446
+        const subscriptionMiddleware = {
+            applyMiddleware: function(payload, next) {
+              // set it on the `payload` which will be passed to the websocket with Apollo 
+              // Server it becomes: `ApolloServer({contetx: ({payload}) => (returns options)
+              payload.authorization = 'Bearer ' + token;
+              payload.endpoint = "grid_service";
+              next()
+            },
+          };
+        link.subscriptionClient.use([subscriptionMiddleware]);
+
         const cache =  new InMemoryCache({});
+
         this.gql_client = new ApolloClient({
             link,
             cache,
