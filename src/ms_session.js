@@ -60,29 +60,6 @@ class Session
         return this.running.length == 0 && this.submitted.length == 0;
     }
 
-    start_new_container(docker, session, params, volumes, bindings)
-    {
-        console.log(`[S] CCC`);
-        const pc_container_name = 'pc.'+params.name;
-        docker.createContainer({
-                Image: params.docker_registry + '/' + params.server_docker,
-                Volumes: volumes,
-                HostConfig: { 
-                    Binds: bindings,
-                    AutoRemove: true
-                },
-                name: pc_container_name,
-                Tty: true,
-                Cmd: ['/bin/bash'],
-        }).then(function(container) {
-            session.server_container = container;
-            console.log(`[S] starting server container [${LOG_CONTAINER(session.server_container.id)}]`);
-            return session.server_container.start();
-        }).then(function(data) {
-            console.log('[S] server container started');
-        });
-    }
-
     start() 
     {
         const params = this.params;
@@ -104,7 +81,7 @@ class Session
                                 out_file        : path.join(output_folder, 
                                                             'job.'+ds+'.log'),
                                 docker_registry : params.docker_registry,
-                                server_docker   : params.server_docker,
+                                docker_image    : params.docker_image,
                              };
                              jparams.dataset = ds;
                              jparams.uid = shortid.generate();
@@ -121,6 +98,7 @@ class Session
         const docker = new dockerode({ socketPath: '/var/run/docker.sock' });
         const session = this;
         const pc_container_name = 'pc.'+params.name;
+        const docker_image = params.docker_registry + '/' + params.server_docker_image;
 
         return new Promise(function(resolve, reject){ 
             docker.listContainers({
@@ -142,10 +120,28 @@ class Session
 
                 return Promise.all(promises);
             }).then(function() {
-                    //session.start_new_container(docker, session, params, volumes, bindings);
+                return new Promise(function(resolve, reject) {
+                    docker.pull(
+                        docker_image,
+                        function (err, stream) {
+                        if (err) {
+                            console.log(ERROR('[S] failed to start exec modem...'));
+                            return reject();
+                        }
+
+                        let message = '';
+                        if(err) return reject(err);
+                        stream.on('data', data => message += data);
+                        stream.on('end', () => resolve(message));
+                        stream.on('error', err => reject(err));
+                    });
+                });
+            }).then(function(msg) {
+                console.log('MSG', msg)
+                //session.start_new_container(docker, session, params, volumes, bindings);
                     console.log(`[S] creating container for sesion ${LOG_SESSION(session)}...`);
                     return docker.createContainer({
-                            Image: params.docker_registry + '/' + params.server_docker,
+                            Image: docker_image,
                             Volumes: volumes,
                             HostConfig: { 
                                 Binds: bindings,

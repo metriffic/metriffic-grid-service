@@ -1,6 +1,7 @@
 const Job     = require('./ms_job').Job;
 const Board   = require('./ms_board').Board;
 const Grid = require('./ms_grid').Grid;
+const ERROR = require('./ms_logging').ERROR
 
 const fs   = require('fs');
 const jwt   = require('jsonwebtoken');
@@ -66,7 +67,7 @@ class Metriffic
 
     on_board_added(data)
     {
-        console.log('SUBSCRIPTION: ', data.boardAdded);
+        console.log('BOARDADDED: ', data.boardAdded);
     }
 
     on_board_removed(data)
@@ -75,15 +76,14 @@ class Metriffic
     }
 
     on_session_added(data)
-    {
-        console.log('SUBSCRIPTION: ', data);
-        
+    {        
         const grid = this.grids[data.platform.id];
         const command = JSON.parse(data.command);
         const datasets = JSON.parse(data.datasets)
-        data.server_docker = 'ubuntu-provider-collector';
+        data.docker_image = data.dockerImage.name;
+        data.server_docker_image = 'ubuntu-provider-collector';
         data.docker_registry = "192.168.86.244:5000";
-        data.user = 'vazkus';
+        data.user = data.user.username;
         data.project = 'test-project';
         data.session_name = data.name;
         data.command = command;
@@ -110,14 +110,15 @@ class Metriffic
             query: subscribe_boards,
         }).subscribe({
             next(ret) {
-                if(ret.data.mutation === "ADDED") {
-                    metriffic.on_board_added(ret.data.data);
+                const update = ret.data.subsBoard;
+                if(update.mutation === "ADDED") {
+                    metriffic.on_board_added(update.data);
                 } else
-                if(ret.data.mutation === "REMOVED") {
+                if(update.mutation === "REMOVED") {
                     // TBD
                     //metriffic.on_board_removed(ret.data);
                 } else {
-                    console.log(ERROR(`[M] error: received unknown board subscription data: ${ret.data}`));
+                    console.log(ERROR(`[M] error: received unknown board subscription data: ${update}`));
                 }
             },
             error(err) {
@@ -128,20 +129,21 @@ class Metriffic
         // subscribe to session updates
         const subscribe_sessions = gql`
         subscription subsSession { 
-            subsSession { mutation data {id, name, type, user{id}, platform{id}, max_jobs, datasets, command }}
+            subsSession { mutation data {id, name, type, user{username}, platform{id}, dockerImage{name} max_jobs, datasets, command }}
         }`;
         this.gql_client.subscribe({
             query: subscribe_sessions,
         }).subscribe({
             next(ret) {
-                if(ret.data.mutation === "ADDED") {
-                    metriffic.on_session_added(ret.data.data.sessionAdded);
+                const update = ret.data.subsSession;            
+                if(update.mutation === "ADDED") {
+                    metriffic.on_session_added(update.data);
                 } else
-                if(ret.data.mutation === "REMOVED") {
+                if(update.mutation === "REMOVED") {
                     // TBD
                     //metriffic.on_session_removed(ret.data);
                 } else {
-                    console.log(ERROR(`[M] error: received unknown board subscription data: ${ret.data}`));
+                    console.log(ERROR(`[M] error: received unknown board subscription data: ${data}`));
                 }
             },
             error(err) {
@@ -192,7 +194,7 @@ class Metriffic
         const metriffic = this;
         const query_platform = gql`
             query{ allSessions(platformId:-1) 
-              { id name max_jobs datasets command platform{id} dockerImage{id}} 
+              { id name type user{username} max_jobs datasets command platform{id} dockerImage{name}} 
             }`;
             
         this.gql_client.query({

@@ -50,7 +50,7 @@ class Job
         job.start_timestamp = Date.now();
 
         //console.log(`[J] starting job [${LOG_JOB(job)}]`);
-       
+        const docker_image = this.params.docker_registry + '/' + this.params.docker_image;
         board.docker.listContainers({
             all: true
         }).then(function(containers) {
@@ -71,10 +71,27 @@ class Job
                 });
 
             return Promise.all(promises);
+        }).then(function() {
+            return new Promise(function(resolve, reject) {
+                board.docker.pull(
+                    docker_image,
+                    function (err, stream) {
+                    if (err) {
+                        console.log(ERROR('[J] failed to start exec modem...'));
+                        return reject();
+                    }
+
+                    let message = '';
+                    if(err) return reject(err);
+                    stream.on('data', data => message += data);
+                    stream.on('end', () => resolve(message));
+                    stream.on('error', err => reject(err));
+                });
+            });        
         }).then(function(data){
             console.log(`[J] container cleanup for board[${LOG_BOARD(board)}] is done.`);
             return board.docker.createContainer({
-                Image: '192.168.86.244:5000/ubuntu-run',
+                Image: docker_image,
                 name: 'brd.bladabla',
                 Cmd: ['/bin/bash'],
                 Tty: true,
