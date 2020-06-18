@@ -26,8 +26,13 @@ class Job
             return job.container.stop()
                     .then(function(data) {
                         console.log(`[J] job[${LOG_JOB(job)}] is complete...`);
-                    }).catch(function(data){
-                        console.log(ERROR(`[J] failed to stop the container for job[${LOG_JOB(job)}]...`));
+                    }).catch(function(err){
+                        if(err.statusCode == 304) { // already stopped: ok
+                            console.log(ERROR(`[J] the container for job[${LOG_JOB(job)}] is already stopped...`));
+                        } else {
+                            console.log(ERROR(`[J] failed to stop the container for job[${LOG_JOB(job)}]... `));
+                            console.log(err)
+                        }
                     }).finally(function(data){
                         job.board.release();
                         job.board = null;
@@ -51,6 +56,9 @@ class Job
 
         //console.log(`[J] starting job [${LOG_JOB(job)}]`);
         const docker_image = this.params.docker_registry + '/' + this.params.docker_image;
+        const session_name = this.params.session_name;
+        const job_id = this.params.uid;
+
         board.docker.listContainers({
             all: true
         }).then(function(containers) {
@@ -72,27 +80,27 @@ class Job
 
             return Promise.all(promises);
         }).then(function() {
+            console.log(`[J] container cleanup for board[${LOG_BOARD(board)}] is done, pulling the requested image [${docker_image}]`);
             return new Promise(function(resolve, reject) {
                 board.docker.pull(
                     docker_image,
                     function (err, stream) {
                     if (err) {
-                        console.log(ERROR('[J] failed to start exec modem...'));
+                        console.log(ERROR(`[J] failed to start exec modem: ${err}`));
                         return reject();
                     }
-
                     let message = '';
                     if(err) return reject(err);
-                    stream.on('data', data => message += data);
+                    stream.on('data', data => { message += data });
                     stream.on('end', () => resolve(message));
                     stream.on('error', err => reject(err));
                 });
             });        
-        }).then(function(data){
-            console.log(`[J] container cleanup for board[${LOG_BOARD(board)}] is done.`);
+        }).then(function(message){
+            console.log(`[J] image ready for [${LOG_BOARD(board)}].`);
             return board.docker.createContainer({
                 Image: docker_image,
-                name: 'brd.bladabla',
+                name: `session-${session_name}.job-${job_id}`,
                 Cmd: ['/bin/bash'],
                 Tty: true,
                 HostConfig: {
@@ -120,11 +128,16 @@ class Job
                     const out_stream = fs.createWriteStream(job.params.out_file);
                     job.container.modem.demuxStream(stream, out_stream, out_stream);
                     new Promise(function(resolve, reject) {
+
+                        let message = '';
+                        stream.on('data', data => {  message += data});
                         stream.on('end', function () { 
                             console.log(`[J] stream from job[${LOG_JOB(job)}] ended.`);
                             exec.inspect(function(err, data) {
                                 if (!err && !data.Running) {
                                     console.log(`[J] job[${LOG_JOB(job)}] exited with code ${data.ExitCode}`);
+		                            //console.log('MSG',message);
+                                    //reject();
                                 }
                             });
                             resolve(); 
@@ -134,7 +147,6 @@ class Job
                     });
                 });
             });
-
         }).catch(function(err) {
             console.log(ERROR(`[J] failed to exec the container for job[${LOG_JOB(job)}] on board[${LOG_BOARD(board)}]...`));
             // TBD: possible error: err { Error: (HTTP code 400) unexpected - No exec command specified 

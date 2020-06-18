@@ -21,6 +21,12 @@ class Session
                     `${JSON.stringify(this.params, undefined, 2)}`);
     }
 
+    session_id() 
+    {
+        const sid =  this.params.name + '-' + this.params.id;
+        return sid;
+    }
+
     accept_next() 
     {
         if(this.submitted.length && this.running.length < this.params.max_jobs) {
@@ -66,9 +72,7 @@ class Session
 
         console.log(`[S] starting session [${LOG_SESSION(this)}]`);
 
-        const [folder, output_folder] = this.create_workspace(params.user, 
-                                                              params.project, 
-                                                              params.name);
+        const [folder, output_folder] = this.create_workspace();
         const input_folder = params.datasets;
         console.log(`[S] created folders: ${folder}, ${output_folder}`);
 
@@ -76,6 +80,9 @@ class Session
         const bindings = [];
         params.datasets.forEach( ds => {
                             const jparams = {
+                                uid             : shortid.generate(),
+                                session_name    : params.name,
+                                dataset         : ds,
                                 command         : params.command,
                                 complete_cb     : params.job_complete_cb,
                                 out_file        : path.join(output_folder, 
@@ -83,8 +90,6 @@ class Session
                                 docker_registry : params.docker_registry,
                                 docker_image    : params.docker_image,
                              };
-                             jparams.dataset = ds;
-                             jparams.uid = shortid.generate();
                              // TBD: review the path
                              bindings.push(`${path.resolve(ds)}:/input/${ds}`);
                              this.submit(new Job(jparams));
@@ -97,7 +102,7 @@ class Session
         console.log('[S] starting the server-side docker for the session...');
         const docker = new dockerode({ socketPath: '/var/run/docker.sock' });
         const session = this;
-        const pc_container_name = 'pc.'+params.name;
+        const pc_container_name = 'pc.' + this.session_id();
         const docker_image = params.docker_registry + '/' + params.server_docker_image;
 
         return new Promise(function(resolve, reject){ 
@@ -137,7 +142,6 @@ class Session
                     });
                 });
             }).then(function(msg) {
-                console.log('MSG', msg)
                 //session.start_new_container(docker, session, params, volumes, bindings);
                     console.log(`[S] creating container for sesion ${LOG_SESSION(session)}...`);
                     return docker.createContainer({
@@ -175,9 +179,9 @@ class Session
         });
     }
 
-    create_workspace(user, project, session_name) 
+    create_workspace() 
     {
-        const folder = path.join(user, project, session_name + '.run');
+        const folder = path.join(this.params.user, this.params.project, this.session_id() + '.run');
         const output_folder = path.join(folder, 'output');
         fs.mkdirSync(folder, { recursive: true });
         fs.mkdirSync(output_folder, { recursive: true });
