@@ -200,7 +200,6 @@ class Metriffic
         this.gql_client.query({
             query: query_platform,
         }).then(function(ret) {
-            console.log('NEXT', ret.data);
             ret.data.allSessions.forEach(params => {
                 metriffic.on_session_added(params)
             });
