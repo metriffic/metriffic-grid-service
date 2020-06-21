@@ -4,11 +4,11 @@ const fs = require('fs');
 const shortid = require('shortid');
 const Job = require('./ms_job').Job;
 
-const LOG_JOB = require('./ms_logging').LOG_JOB
-const LOG_SESSION = require('./ms_logging').LOG_SESSION
-const LOG_TIME = require('./ms_logging').LOG_TIME
-const LOG_CONTAINER = require('./ms_logging').LOG_CONTAINER
-const ERROR = require('./ms_logging').ERROR
+const LOG_JOB = require('./logging').LOG_JOB
+const LOG_SESSION = require('./logging').LOG_SESSION
+const LOG_TIME = require('./logging').LOG_TIME
+const LOG_CONTAINER = require('./logging').LOG_CONTAINER
+const ERROR = require('./logging').ERROR
 
 class Session
 {
@@ -19,6 +19,23 @@ class Session
         this.running = [];
         console.log('[S] initialized session with following params:\n',
                     `${JSON.stringify(this.params, undefined, 2)}`);
+        if(this.params.type === 'interactive') {
+        }
+    }
+
+    is_batch() 
+    {
+        return this.params.type === 'batch';
+    }
+    
+    is_interactive() 
+    {
+        return this.params.type === 'interactive';
+    }
+    
+    is_done()
+    {
+        return this.running.length == 0 && this.submitted.length == 0;
     }
 
     session_id() 
@@ -42,7 +59,7 @@ class Session
 
     on_complete(job) 
     {
-        const update_running = [];
+        const running_updated = [];
         this.running.forEach(rj => {
             if( rj.params.uid == job.params.uid) {
                 console.log(`[S] removed completed job [${LOG_JOB(job)}], \n`,
@@ -50,20 +67,15 @@ class Session
                             `\t\tstarted  \t${LOG_TIME(job.start_timestamp)} \n`,
                             `\t\tfinished \t${LOG_TIME(job.complete_timestamp)}`);
             } else {
-                update_running.push(rj);
+                running_updated.push(rj);
             }
         });
-        if(update_running.length == this.running.length) {
+        if(running_updated.length == this.running.length) {
             console.log(ERROR(`[S] error: completed job [${LOG_JOB(job)}] can not be `,
                         `found in the list of running jobs`));
         }
-        this.running = update_running;
+        this.running = running_updated;
 
-    }
-
-    is_done()
-    {
-        return this.running.length == 0 && this.submitted.length == 0;
     }
 
     start() 
@@ -77,28 +89,84 @@ class Session
         console.log(`[S] created folders: ${folder}, ${output_folder}`);
 
         // prepare volumes and binding for the provide-collector container...
-        const bindings = [];
-        params.datasets.forEach( ds => {
-                            const jparams = {
-                                uid             : shortid.generate(),
-                                session_name    : params.name,
-                                dataset         : ds,
-                                command         : params.command,
-                                complete_cb     : params.job_complete_cb,
-                                out_file        : path.join(output_folder, 
-                                                            'job.'+ds+'.log'),
-                                docker_registry : params.docker_registry,
-                                docker_image    : params.docker_image,
-                             };
-                             // TBD: review the path
-                             bindings.push(`${path.resolve(ds)}:/input/${ds}`);
-                             this.submit(new Job(jparams));
-                         });
-        bindings.push(`${path.resolve(output_folder)}:/output`);
-        const volumes = { '/output': {} };
-        params.datasets.forEach(ds => { volumes[`/input/${ds}`] = {}; });
+        //const bindings = [];
+        if(this.is_batch()) {
+            params.datasets.forEach( ds => {
+                    const jparams = {
+                        uid             : shortid.generate(),
+                        session_name    : params.name,
+                        dataset         : ds,
+                        command         : params.command,
+                        complete_cb     : params.job_complete_cb,
+                        out_file        : path.join(output_folder, 
+                                                    'job.'+ds+'.log'),
+                        docker_registry : params.docker_registry,
+                        docker_image    : params.docker_image,
+                        type            : 'batch',
+                        };
+                        // TBD: review the path
+                        //bindings.push(`${path.resolve(ds)}:/input/${ds}`);
+                        this.submit(new Job(jparams));
+                    });
+        } else 
+        if(this.is_interactive()) {
+                    const jparams = {
+                        uid             : shortid.generate(),
+                        session_name    : params.name,
+                        command         : params.ssh_command,
+                        complete_cb     : params.job_complete_cb,
+                        out_file        : path.join(output_folder, 
+                                                    'job.interactive.log'),
+                        docker_registry : params.docker_registry,
+                        docker_image    : params.ssh_docker_image,
+                        type            : 'interactive',
+                    };
+                    this.submit(new Job(jparams));         
 
-        // launch the provider-collector docker
+        } else {
+            console.log(ERROR(`[S] error: unknown session type: [${this.params.type}]...`));
+            // TBD: make sure the session is canceled
+        }
+        //bindings.push(`${path.resolve(output_folder)}:/output`);
+        //const volumes = { '/output': {} };
+        //params.datasets.forEach(ds => { volumes[`/input/${ds}`] = {}; });
+
+        // this.start_server_side_container();
+       
+    }
+    
+    async stop() 
+    {  
+        console.log('[S] stopping the session');
+        this.running.forEach(rj => {
+            rj.cancel();
+        });
+        // this.stop_server_side_container();
+    }
+
+    create_workspace() 
+    {
+        const folder = path.join(this.params.user, this.params.project, this.session_id() + '.run');
+        const output_folder = path.join(folder, 'output');
+        fs.mkdirSync(folder, { recursive: true });
+        fs.mkdirSync(output_folder, { recursive: true });
+        return [folder, output_folder];
+    }
+
+    submit(job) 
+    {
+        job.session = this;
+        job.submit_timestamp = Date.now();
+        this.submitted.push(job);
+        console.log(`[S] submitting job [${LOG_JOB(job)}] to session[${LOG_SESSION(this)}], `+ 
+                    `total submitted: ${this.submitted.length} jobs`);
+    }
+
+
+
+    start_service_side_container() 
+    {
+         // launch the provider-collector docker
         console.log('[S] starting the server-side docker for the session...');
         const docker = new dockerode({ socketPath: '/var/run/docker.sock' });
         const session = this;
@@ -166,11 +234,8 @@ class Session
                     
         });
     }
-    
-    async stop() 
-    {  
-        console.log('[S] stopping the session');
-        //TBD: this.server container can be undefined...
+    stop_service_side_container() 
+    {
         this.server_container.stop()
         .then(function(data) {
             console.log('[S] stopped!');
@@ -178,26 +243,8 @@ class Session
             console.log('[S] caught error when stopping...!');
         });
     }
-
-    create_workspace() 
-    {
-        const folder = path.join(this.params.user, this.params.project, this.session_id() + '.run');
-        const output_folder = path.join(folder, 'output');
-        fs.mkdirSync(folder, { recursive: true });
-        fs.mkdirSync(output_folder, { recursive: true });
-        return [folder, output_folder];
-    }
-
-    submit(job) 
-    {
-        job.session = this;
-        job.submit_timestamp = Date.now();
-        this.submitted.push(job);
-        console.log(`[S] submitting job [${LOG_JOB(job)}] to session[${LOG_SESSION(this)}], `+ 
-                    `total submitted: ${this.submitted.length} jobs`);
-    }
-
 };
+
 
 
 module.exports.Session = Session;

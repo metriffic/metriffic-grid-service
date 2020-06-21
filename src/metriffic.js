@@ -1,16 +1,9 @@
 const Job     = require('./ms_job').Job;
 const Board   = require('./ms_board').Board;
 const Grid = require('./ms_grid').Grid;
-const ERROR = require('./ms_logging').ERROR
+const ERROR = require('./logging').ERROR
+const metriffic_client = require('./metriffic_gql').metriffic_client
 
-const fs   = require('fs');
-const jwt   = require('jsonwebtoken');
-
-import WebSocket from 'ws';
-import ApolloClient from "apollo-client";
-import { InMemoryCache } from "apollo-cache-inmemory";
-import { WebSocketLink } from 'apollo-link-ws';
-import { SubscriptionClient } from "subscriptions-transport-ws";
 import gql from 'graphql-tag';
 
 // use 'utf8' to get string instead of byte array  (512 bit key)
@@ -19,50 +12,18 @@ import gql from 'graphql-tag';
 
 class Metriffic 
 {       
-    constructor(params) 
+    constructor() 
     {
-        var options = {
-            algorithm:  "RS256"    
-        };
-        const grid_manager_private_key  = fs.readFileSync('./grid_service_private.key', 'utf8');
-        const token = jwt.sign({who: "grid_service"}, grid_manager_private_key, options);
-        
         this.grids = {};
+        this.start();
+    }
 
-        const wsClient = new SubscriptionClient(
-            params.WS_ENDPOINT,
-            {
-                reconnect: true,
-                connectionParams: () => { 
-                    return { FOO: "FOO"}; 
-                  },
-            },
-            WebSocket
-        )
-        const link = new WebSocketLink(wsClient)
-
-        // https://github.com/apollographql/apollo-link/issues/446
-        const subscriptionMiddleware = {
-            applyMiddleware: function(payload, next) {
-              // set it on the `payload` which will be passed to the websocket with Apollo 
-              // Server it becomes: `ApolloServer({contetx: ({payload}) => (returns options)
-              payload.authorization = 'Bearer ' + token;
-              payload.endpoint = "grid_service";
-              next()
-            },
-          };
-        link.subscriptionClient.use([subscriptionMiddleware]);
-
-        const cache =  new InMemoryCache({});
-
-        this.gql_client = new ApolloClient({
-            link,
-            cache,
-        })
-        
-        this.start_platform_grids();
-        this.subscribe_to_gql_updates();
-        this.add_existing_sessions();
+    async start()
+    {
+        console.log('[M] starting service...');
+        await this.start_platform_grids();
+        await this.subscribe_to_gql_updates();
+        await this.add_existing_sessions();
     }
 
     on_board_added(data)
@@ -88,15 +49,22 @@ class Metriffic
         data.session_name = data.name;
         data.command = command;
         data.datasets = datasets,
+        data.ssh_docker_image = 'rpi3-ssh-runner';
+        data.ssh_command = ["service", "ssh", "start"];
+
         grid.submit_session(data);
     }
 
     on_session_removed(data)
     {
-        // TBD
+        const grid = this.grids[data.platform.id];
+        const session = grid.get_session(data.id);
+        if(session) {
+            grid.dismiss_session(session);
+        }
     }
 
-    subscribe_to_gql_updates()
+    async subscribe_to_gql_updates()
     {
         const metriffic = this;
 
@@ -106,7 +74,7 @@ class Metriffic
         }`;
             
         // subscribe to board updates
-        this.gql_client.subscribe({
+        metriffic_client.gql.subscribe({
             query: subscribe_boards,
         }).subscribe({
             next(ret) {
@@ -129,21 +97,24 @@ class Metriffic
         // subscribe to session updates
         const subscribe_sessions = gql`
         subscription subsSession { 
-            subsSession { mutation data {id, name, type, user{username}, platform{id}, dockerImage{name} max_jobs, datasets, command }}
+            subsSession { mutation data {id, name, type, state, user{username}, platform{id}, dockerImage{name} max_jobs, datasets, command }}
         }`;
-        this.gql_client.subscribe({
+
+        metriffic_client.gql.subscribe({
             query: subscribe_sessions,
         }).subscribe({
             next(ret) {
-                const update = ret.data.subsSession;            
+                const update = ret.data.subsSession;
                 if(update.mutation === "ADDED") {
                     metriffic.on_session_added(update.data);
                 } else
-                if(update.mutation === "REMOVED") {
-                    // TBD
-                    //metriffic.on_session_removed(ret.data);
+                if(update.mutation === "UPDATED") {
+                    if(update.data.state === "CANCELED") {
+                        metriffic.on_session_removed(update.data);
+                    }
+                    // TBD: handle other state transitions...
                 } else {
-                    console.log(ERROR(`[M] error: received unknown board subscription data: ${data}`));
+                    console.log(ERROR(`[M] error: received unknown board subscription data: ${update.data}`));
                 }
             },
             error(err) {
@@ -154,58 +125,62 @@ class Metriffic
 
     async start_platform_grids()
     {
-        const get_platforms = gql`{ 
-                allPlatforms { id name description } 
-            }`;
         const metriffic = this; 
 
+        const all_platforms_gql = gql`{ 
+                allPlatforms { id name description } 
+            }`;
+
         // a query with apollo-client
-        this.gql_client.query({
-          query: get_platforms
-        }).then(function(ret) {
-            ret.data.allPlatforms.forEach(platform => {
-                console.log(`Building grid-manager for platform[${platform.name}]`);
-                // create a new grid for the platform
-                metriffic.grids[platform.id] = new Grid(platform);
-                // pull boards for this platform
-                const get_boards = gql`
-                        query allBoards($platformId: Int!) {
-                            allBoards (platformId: $platformId) 
-                            {id hostname description}
-                        }`;
-                metriffic.gql_client.query({
-                    query: get_boards,
-                    variables: {platformId: platform.id},
-                }).then(function(ret) {
-                    ret.data.allBoards.forEach(board => {
-                            metriffic.grids[platform.id].register_board(new Board({
-                                    platform: platform.name, 
-                                    hostname: board.hostname
-                                }));
-                        });    
-                    metriffic.grids[platform.id].start();
-                });
+        const all_platforms = await metriffic_client.gql.query({
+                                        query: all_platforms_gql
+                                    });
+
+        const promises = all_platforms.data.allPlatforms.map(function(platform) {
+            console.log(`[M] Building grid-manager for platform[${platform.name}]`);
+            // create a new grid for the platform
+            metriffic.grids[platform.id] = new Grid(platform);
+            // pull boards for this platform
+            const all_boards_gql = gql`
+                    query allBoards($platformId: Int!) {
+                        allBoards (platformId: $platformId) 
+                        {id hostname description}
+                    }`;
+            metriffic_client.gql.query({
+                            query: all_boards_gql,
+                            variables: {platformId: platform.id},
+                        })
+            .then(function(all_boards) {
+                all_boards.data.allBoards.forEach(board => {
+                        metriffic.grids[platform.id].register_board(new Board({
+                                platform: platform.name, 
+                                hostname: board.hostname
+                            }));
+                    });    
+                metriffic.grids[platform.id].start();
             });
         });
+        await Promise.all(promises);
     }
 
     async add_existing_sessions() 
     {
         const metriffic = this;
-        const query_platform = gql`
+        const all_sessions_gql = gql`
             query{ allSessions(platformId:-1) 
               { id name type user{username} max_jobs datasets command platform{id} dockerImage{name}} 
             }`;
             
-        this.gql_client.query({
-            query: query_platform,
-        }).then(function(ret) {
-            ret.data.allSessions.forEach(params => {
-                metriffic.on_session_added(params)
-            });
-        }).catch(function(err){
-            console.log('ERROR', err);
-        });
+        const all_sessions = await metriffic_client.gql.query({
+                                query: all_sessions_gql,
+                            });
+        all_sessions.data.allSessions.forEach(session => {
+                            if(session.state === "SUBMITTED") {
+                                metriffic.on_session_added(session);
+                            }
+                            // TBD: handle other states
+                        });
+        
     }
 
 };

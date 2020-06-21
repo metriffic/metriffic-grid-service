@@ -1,10 +1,10 @@
 const Job = require('./ms_job');
 const Session = require('./ms_session').Session;
 
-const LOG_JOB = require('./ms_logging').LOG_JOB
-const LOG_BOARD = require('./ms_logging').LOG_BOARD
-const LOG_SESSION = require('./ms_logging').LOG_SESSION
-const ERROR = require('./ms_logging').ERROR
+const LOG_JOB = require('./logging').LOG_JOB
+const LOG_BOARD = require('./logging').LOG_BOARD
+const LOG_SESSION = require('./logging').LOG_SESSION
+const ERROR = require('./logging').ERROR
 
 class Grid 
 {
@@ -74,7 +74,12 @@ class Grid
         }
         this.boards = updated_boards;
     }
-    
+    get_session(id) 
+    {
+        return this.subscribers.find(session => 
+                                (session.params.id == id));
+    }
+
     submit_session(session_params) 
     {
 
@@ -82,35 +87,18 @@ class Grid
 
         const session = new Session(session_params);
 
-        const grid = this;
-        grid.subscribers.push(session);
+        this.subscribers.push(session);
         console.log(`[G] subscribed session[${LOG_SESSION(session)}], ` +
-                    `total ${grid.subscribers.length} subscribers.`);
+                    `total ${this.subscribers.length} subscribers.`);
         
-        // create the test workspace, controller container, etc...
-        session.start().then(function(data) {
-            grid.schedule();
-        }).catch(function(data) {
-        });
+        session.start();
+        this.schedule();
     }
 
     dismiss_session(session) 
     {
-        // remove from the job queue
-        this.running_jobs = this.running_jobs.filter(rj => rj.session.params.id != session.params.id);
-
         // stop the session (it's container, etc)
         session.stop();
-
-        // remove from the list of subscribed jobs...
-        const updated_subscribers = this.subscribers.filter(s => s.params.id != session.params.id);
-        if(updated_subscribers.length < this.subscribers.length) {
-            console.log(`[G] unsubscribed session[${LOG_SESSION(session)}], ` +
-                        `total ${updated_subscribers.length} subscribers.`);
-        } else {
-            console.log(ERROR(`[G] error: session[${LOG_SESSION(session)}] requested to be unsubscribed can not be found!`));
-        }
-        this.subscribers = updated_subscribers;
     }
 
     schedule() 

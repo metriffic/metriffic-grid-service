@@ -1,10 +1,12 @@
 const dockerode = require('dockerode');
 const fs = require('fs');
 
-const LOG_JOB = require('./ms_logging').LOG_JOB
-const LOG_BOARD = require('./ms_logging').LOG_BOARD
-const LOG_CONTAINER = require('./ms_logging').LOG_CONTAINER
-const ERROR = require('./ms_logging').ERROR
+const ssh_manager = require('./ssh_manager').ssh_manager;
+
+const LOG_JOB = require('./logging').LOG_JOB
+const LOG_BOARD = require('./logging').LOG_BOARD
+const LOG_CONTAINER = require('./logging').LOG_CONTAINER
+const ERROR = require('./logging').ERROR
 
 class Job 
 {
@@ -18,9 +20,25 @@ class Job
         this.board = null;
     }
 
+
+    is_batch() 
+    {
+        return this.params.type === 'batch';
+    }
+    
+    is_interactive() 
+    {
+        return this.params.type === 'interactive';
+    }
+
     stop_container()
     {
         const job = this;
+        // release the ssh port if one was reserved for the job
+        if(job.ssh_port) {
+            ssh_manager.release_port(job);
+        }
+        // stop the container...
         if(job.container) {
             console.log(`[J] stopping container for job[${LOG_JOB(job)}] on board[${LOG_BOARD(job.board)}]`);
             return job.container.stop()
@@ -110,13 +128,22 @@ class Job
         const board = job.board;
         const job_id = this.params.uid;
         const session_name = this.params.session_name;
-
+        var exposed_ports = {};
+        var port_bindings = {};
+        job.ssh_port = ssh_manager.reserve_port(job);
+        if(job.is_interactive) {
+            exposed_ports = { "22/tcp": {}};
+            port_bindings = { '22/tcp': [{'HostPort': job.ssh_port.toString(), 
+                                          'HostIp':'0.0.0.0'}]};
+        }
         const container = await board.docker.createContainer({
                                             Image: job.docker_image(),
                                             name: `session-${session_name}.job-${job_id}`,
                                             Cmd: ['/bin/bash'],
                                             Tty: true,
+                                            ExposedPorts: exposed_ports,
                                             HostConfig: {
+                                                PortBindings: port_bindings,
                                                 AutoRemove: true
                                             }
                                         });
@@ -129,13 +156,14 @@ class Job
     async docker_container_exec()
     {
         const job = this;
+        console.log(`[J] executing command [${job.params.command}]`);
         const exec = await job.container.exec({
                                     Cmd: job.params.command,
                                     AttachStdout: true,
                                     AttachStderr: true,
                                     Tty: true
                                  });
-                        
+                                
         const stream_start =  new Promise(function(exec_resolve, exec_reject) {
             exec.start((err, stream) => {
                 if (err) {
@@ -195,6 +223,7 @@ class Job
             console.log(ERROR(`[J] Failed to start the container for job[${LOG_JOB(job)}], ${e}`));
         };
 
+        // TBD: handle the case when job.container is null!
 
         console.log(`[J] container[${LOG_CONTAINER(job.container.id)}] is created for job[${LOG_JOB(job)}].`);
         try {
@@ -202,7 +231,19 @@ class Job
         } catch(e) {
             console.log(ERROR(`[J] failed to exec the container for job[${LOG_JOB(job)}] on board[${LOG_BOARD(board)}]...`));
         }
-        await job.stop_container();
+
+        if(job.is_batch()) {
+            await job.complete();
+        }
+    }
+
+    complete() {
+        this.state = "COMPLETED";
+        this.stop_container();
+    }
+    cancel() {
+        this.state = "CANCELED";
+        this.stop_container();
     }
 };
 
