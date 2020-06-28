@@ -3,9 +3,7 @@ const Board   = require('./ms_board').Board;
 const Grid = require('./ms_grid').Grid;
 const ERROR = require('./logging').ERROR
 const metriffic_client = require('./metriffic_gql').metriffic_client
-
-import gql from 'graphql-tag';
-
+const gql = require('graphql-tag');
 // use 'utf8' to get string instead of byte array  (512 bit key)
 
 
@@ -28,7 +26,7 @@ class Metriffic
 
     on_board_added(data)
     {
-        console.log('BOARDADDED: ', data.boardAdded);
+        // TBD
     }
 
     on_board_removed(data)

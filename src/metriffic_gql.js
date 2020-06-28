@@ -3,12 +3,11 @@ const config = require('./config')
 const fs   = require('fs');
 const jwt   = require('jsonwebtoken');
 
-import WebSocket from 'ws';
-import ApolloClient from "apollo-client";
-import { InMemoryCache } from "apollo-cache-inmemory";
-import { WebSocketLink } from 'apollo-link-ws';
-import { SubscriptionClient } from "subscriptions-transport-ws";
-import gql from 'graphql-tag';
+const WebSocket = require('ws');
+const { ApolloClient } = require("apollo-client");
+const { InMemoryCache } = require("apollo-cache-inmemory");
+const { WebSocketLink } = require('apollo-link-ws');
+const { SubscriptionClient } = require("subscriptions-transport-ws");
 
 // use 'utf8' to get string instead of byte array  (512 bit key)
 

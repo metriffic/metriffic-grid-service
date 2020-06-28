@@ -1,12 +1,27 @@
 const dockerode = require('dockerode');
 const fs = require('fs');
 
-const ssh_manager = require('./ssh_manager').ssh_manager;
+const { ssh_manager } = require('./ssh_manager');
+const { publish_to_user_stream } = require('./data_stream');
 
 const LOG_JOB = require('./logging').LOG_JOB
 const LOG_BOARD = require('./logging').LOG_BOARD
 const LOG_CONTAINER = require('./logging').LOG_CONTAINER
 const ERROR = require('./logging').ERROR
+const config = require('./config')
+
+const JobType = {
+    batch:       'BATCH',
+    interactive: 'INTERACTIVE'
+}
+
+const JobState = {
+    submitted: 'SUBMITTED',
+    running:   'RUNNING',
+    completed: 'COMPLETED',
+    canceled:  'CANCELED'
+}
+
 
 class Job 
 {
@@ -18,24 +33,25 @@ class Job
         this.complete_timestamp = 0;
         this.container = null;
         this.board = null;
+        this.state = JobState.submitted;
     }
 
 
     is_batch() 
     {
-        return this.params.type === 'batch';
+        return this.params.type === JobType.batch;
     }
     
     is_interactive() 
     {
-        return this.params.type === 'interactive';
+        return this.params.type === JobType.interactive;
     }
 
     stop_container()
     {
         const job = this;
         // release the ssh port if one was reserved for the job
-        if(job.ssh_port) {
+        if(job.user && job.user.port) {
             ssh_manager.release_port(job);
         }
         // stop the container...
@@ -51,10 +67,13 @@ class Job
                             console.log(ERROR(`[J] failed to stop the container for job[${LOG_JOB(job)}]... `));
                             console.log(err)
                         }
-                    }).finally(function(data){
-                        job.board.release();
-                        job.board = null;
-                        job.params.complete_cb(job);
+                    }).finally(function(){
+                        // check if the board exists and stop it (need the check in case it's already stopped)
+                        if(job.board) {
+                            job.board.release();
+                            job.board = null;
+                            job.params.complete_cb(job);
+                        }
                     });
         } else {
             job.board.release();
@@ -130,10 +149,12 @@ class Job
         const session_name = this.params.session_name;
         var exposed_ports = {};
         var port_bindings = {};
-        job.ssh_port = ssh_manager.reserve_port(job);
-        if(job.is_interactive) {
+
+        // if this is an interactive session, prepare ssh-manager and set up docker port forwarding
+        if(job.is_interactive()) {
+            ssh_manager.start_session(job);
             exposed_ports = { "22/tcp": {}};
-            port_bindings = { '22/tcp': [{'HostPort': job.ssh_port.toString(), 
+            port_bindings = { '22/tcp': [{'HostPort': job.ssh_user.port.toString(), 
                                           'HostIp':'0.0.0.0'}]};
         }
         const container = await board.docker.createContainer({
@@ -163,7 +184,19 @@ class Job
                                     AttachStderr: true,
                                     Tty: true
                                  });
-                                
+
+        // if this is an interactive session: set up update the data and publish it to the user...
+        if(job.is_interactive() && job.ssh_user) {
+            const ssh_user = job.ssh_user;
+            ssh_user.hostname = job.container.id.slice(0,12);
+            //publish_to_user_stream(job.params.user, `  host: ${ssh_user.hostname} \n  username: ${ssh_user.username}\n  password: ${ssh_user.password}`);
+            publish_to_user_stream(job.params.user, {
+                                       port: config.SSH_EXTERNAL_PORT,
+                                       host: ssh_user.hostname,
+                                       username: ssh_user.username,
+                                       password: ssh_user.password
+                                   });
+        }
         const stream_start =  new Promise(function(exec_resolve, exec_reject) {
             exec.start((err, stream) => {
                 if (err) {
@@ -205,6 +238,7 @@ class Job
         const job = this;
         job.board = board;
         job.start_timestamp = Date.now();
+        job.state = JobState.running;
 
         await job.docker_containers_cleanup();
         
@@ -229,7 +263,7 @@ class Job
         try {
             await job.docker_container_exec();
         } catch(e) {
-            console.log(ERROR(`[J] failed to exec the container for job[${LOG_JOB(job)}] on board[${LOG_BOARD(board)}]...`));
+            console.log(ERROR(`[J] failed to exec the container for job[${LOG_JOB(job)}] on board[${LOG_BOARD(board)}], error: ${e}...`));
         }
 
         if(job.is_batch()) {
@@ -238,13 +272,15 @@ class Job
     }
 
     complete() {
-        this.state = "COMPLETED";
+        this.state = JobState.completed;
         this.stop_container();
     }
     cancel() {
-        this.state = "CANCELED";
+        this.state = JobState.canceled;
         this.stop_container();
     }
 };
 
+module.exports.JobType = JobType;
+module.exports.JobState = JobState;
 module.exports.Job = Job;

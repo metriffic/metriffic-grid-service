@@ -2,6 +2,7 @@ const dockerode = require('dockerode');
 const path = require('path');
 const fs = require('fs');
 const shortid = require('shortid');
+const JobType = require('./ms_job').JobType;
 const Job = require('./ms_job').Job;
 
 const LOG_JOB = require('./logging').LOG_JOB
@@ -19,18 +20,16 @@ class Session
         this.running = [];
         console.log('[S] initialized session with following params:\n',
                     `${JSON.stringify(this.params, undefined, 2)}`);
-        if(this.params.type === 'interactive') {
-        }
     }
 
     is_batch() 
     {
-        return this.params.type === 'batch';
+        return this.params.type === JobType.batch;
     }
     
     is_interactive() 
     {
-        return this.params.type === 'interactive';
+        return this.params.type === JobType.interactive;
     }
     
     is_done()
@@ -102,7 +101,7 @@ class Session
                                                     'job.'+ds+'.log'),
                         docker_registry : params.docker_registry,
                         docker_image    : params.docker_image,
-                        type            : 'batch',
+                        type            : JobType.batch,
                         };
                         // TBD: review the path
                         //bindings.push(`${path.resolve(ds)}:/input/${ds}`);
@@ -113,26 +112,21 @@ class Session
                     const jparams = {
                         uid             : shortid.generate(),
                         session_name    : params.name,
+                        user            : params.user,
                         command         : params.ssh_command,
                         complete_cb     : params.job_complete_cb,
                         out_file        : path.join(output_folder, 
                                                     'job.interactive.log'),
                         docker_registry : params.docker_registry,
                         docker_image    : params.ssh_docker_image,
-                        type            : 'interactive',
+                        type            : JobType.interactive,
                     };
-                    this.submit(new Job(jparams));         
+            this.submit(new Job(jparams));         
 
         } else {
             console.log(ERROR(`[S] error: unknown session type: [${this.params.type}]...`));
             // TBD: make sure the session is canceled
         }
-        //bindings.push(`${path.resolve(output_folder)}:/output`);
-        //const volumes = { '/output': {} };
-        //params.datasets.forEach(ds => { volumes[`/input/${ds}`] = {}; });
-
-        // this.start_server_side_container();
-       
     }
     
     async stop() 
