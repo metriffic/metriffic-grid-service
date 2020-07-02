@@ -64,8 +64,7 @@ class Job
                         if(err.statusCode == 304) { // already stopped: ok
                             console.log(ERROR(`[J] the container for job[${LOG_JOB(job)}] is already stopped...`));
                         } else {
-                            console.log(ERROR(`[J] failed to stop the container for job[${LOG_JOB(job)}]... `));
-                            console.log(err)
+                            console.log(ERROR(`[J] failed to stop the container for job[${LOG_JOB(job)}], error: ${err}`));
                         }
                     }).finally(function(){
                         // check if the board exists and stop it (need the check in case it's already stopped)
@@ -152,10 +151,11 @@ class Job
 
         // if this is an interactive session, prepare ssh-manager and set up docker port forwarding
         if(job.is_interactive()) {
-            ssh_manager.start_session(job);
+            ssh_manager.setup_session(job);
             exposed_ports = { "22/tcp": {}};
-            port_bindings = { '22/tcp': [{'HostPort': job.ssh_user.port.toString(), 
-                                          'HostIp':'0.0.0.0'}]};
+            port_bindings = { '22/tcp': [{'HostPort': job.ssh_user.docker_port.toString(), 
+                                          'HostIp': job.ssh_user.docker_host}]};
+                                          //'HostIp': config.SSH_DRIVER_SERVER_HOST}]};
         }
         const container = await board.docker.createContainer({
                                             Image: job.docker_image(),
@@ -174,6 +174,29 @@ class Job
         await job.container.start();
     }
 
+    docker_exec_stream_handler(err, data) 
+    {
+        const job = this;
+        if (err) {
+            console.log(`[J] docker execution for job[${LOG_JOB(job)}] exited with code ${data.ExitCode}, error: ${err}`);
+        } else 
+        if (!data.Running) {
+            console.log(`[J] docker execution for job[${LOG_JOB(job)}] exited with code ${data.ExitCode}`);
+                    // if this is an interactive session: set up update the data and publish it to the user...
+            if(job.is_interactive() && job.ssh_user) {
+                const ssh_user = job.ssh_user;
+                ssh_user.hostname = job.container.id.slice(0,12);
+                ssh_manager.start_session(job);
+                publish_to_user_stream(job.params.user, {
+                                        port: config.SSH_EXTERNAL_PORT,
+                                        host: ssh_user.hostname,
+                                        username: ssh_user.username,
+                                        password: ssh_user.password
+                                    });
+            }
+        }   
+    }
+
     async docker_container_exec()
     {
         const job = this;
@@ -185,18 +208,6 @@ class Job
                                     Tty: true
                                  });
 
-        // if this is an interactive session: set up update the data and publish it to the user...
-        if(job.is_interactive() && job.ssh_user) {
-            const ssh_user = job.ssh_user;
-            ssh_user.hostname = job.container.id.slice(0,12);
-            //publish_to_user_stream(job.params.user, `  host: ${ssh_user.hostname} \n  username: ${ssh_user.username}\n  password: ${ssh_user.password}`);
-            publish_to_user_stream(job.params.user, {
-                                       port: config.SSH_EXTERNAL_PORT,
-                                       host: ssh_user.hostname,
-                                       username: ssh_user.username,
-                                       password: ssh_user.password
-                                   });
-        }
         const stream_start =  new Promise(function(exec_resolve, exec_reject) {
             exec.start((err, stream) => {
                 if (err) {
@@ -211,13 +222,7 @@ class Job
                     stream.on('data', data => {  message += data});
                     stream.on('end', function () { 
                         console.log(`[J] stream from job[${LOG_JOB(job)}] ended.`);
-                        exec.inspect(function(err, data) {
-                            if (!err && !data.Running) {
-                                console.log(`[J] job[${LOG_JOB(job)}] exited with code ${data.ExitCode}`);
-                                //console.log('MSG',message);
-                                //reject();
-                            }
-                        });
+                        exec.inspect((err, data) => job.docker_exec_stream_handler(err, data));
                         resolve(); 
                     });
                 }).finally(function(data) {
