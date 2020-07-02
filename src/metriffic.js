@@ -1,12 +1,14 @@
+const path = require('path');
+const fs = require('fs');
+
 const Job     = require('./ms_job').Job;
 const Board   = require('./ms_board').Board;
 const Grid = require('./ms_grid').Grid;
-const ERROR = require('./logging').ERROR
 const metriffic_client = require('./metriffic_gql').metriffic_client
 const gql = require('graphql-tag');
-// use 'utf8' to get string instead of byte array  (512 bit key)
-
-
+const config = require('./config')
+const LOG_USER = require('./logging').LOG_USER
+const ERROR = require('./logging').ERROR
 
 class Metriffic 
 {       
@@ -60,6 +62,17 @@ class Metriffic
         if(session) {
             grid.dismiss_session(session);
         }
+    }
+
+    on_user_added(data)
+    {
+        const folder = path.join(config.USER_DATA_DIR_ROOT + data.username);
+        fs.mkdirSync(folder, { recursive: false });
+        const output_folder = path.join(config.USER_DATA_DIR_ROOT, data.username, 'output');
+        fs.mkdirSync(output_folder, { recursive: false });
+        const input_folder = path.join(config.USER_DATA_DIR_ROOT, data.username, 'input');
+        fs.mkdirSync(input_folder, { recursive: false });
+        console.log(`[M] created userspace for user ${LOG_USER(data.username)}`);
     }
 
     async subscribe_to_gql_updates()
@@ -118,7 +131,31 @@ class Metriffic
             error(err) {
                 console.log('ERROR: failes to subscribe', err);
             }
-        })
+        });
+
+        // subscribe to user updates
+        const subscribe_users = gql`
+        subscription subsUser { 
+            subsUser { mutation data {id, username }}
+        }`;
+
+        metriffic_client.gql.subscribe({
+            query: subscribe_users,
+        }).subscribe({
+            next(ret) {
+                console.log(ret.data)
+                const update = ret.data.subsUser;
+                if(update.mutation === "ADDED") {
+                    metriffic.on_user_added(update.data);
+                } else
+                if(update.mutation === "DELETED") {
+                    //TBD: delete a user 
+                }
+            },
+            error(err) {
+                console.log('ERROR: failes to subscribe', err);
+            }
+        });
     }
 
     async start_platform_grids()

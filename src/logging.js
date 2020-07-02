@@ -1,5 +1,10 @@
 const colors = require('colors');
 
+function user_str(username) 
+{
+    return username.bold.brightWhite;
+}
+
 function job_str(job) 
 {
     return job.params.uid.green;
@@ -32,6 +37,7 @@ function error_str(msg)
 }
 
 
+module.exports.LOG_USER = user_str;
 module.exports.LOG_JOB = job_str;
 module.exports.LOG_BOARD = board_str;
 module.exports.LOG_SESSION = session_str;
