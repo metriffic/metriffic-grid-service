@@ -15,9 +15,9 @@ module.exports.publish_to_user_stream = (user, data) => {
         variables: { username: user, 
                      data: JSON.stringify(data) }
     }).then(function(ret) {
-        console.log('PUBLISHED', ret.data);
+        //console.log('PUBLISHED', ret.data);
     }).catch(function(err){
-        console.log('ERROR in publishing data', err);
+        //console.log('ERROR in publishing data', err);
     });
 };
 
