@@ -1,5 +1,6 @@
 const dockerode = require('dockerode');
 const fs = require('fs');
+const path = require('path');
 
 const { ssh_manager } = require('./ssh_manager');
 const { publish_to_user_stream } = require('./data_stream');
@@ -140,6 +141,31 @@ class Job
         await pull;
     }
 
+    async docker_volume_create()
+    {
+        const username = this.params.user;
+        console.log('UUU',username);
+        await this.board.docker.createVolume({
+            Name: 'userspace_out', 
+            Driver: 'local', 
+            DriverOpts: {
+                'type': 'nfs',
+                'device': ':' + path.join(config.USERSPACE_DIR_ROOT, username, 'output'),
+                'o': 'addr=' + config.USERSPACE_HOST + ',rw',
+                //'device': ':/home/metriffic/userspace/bla/output',
+                //'o': 'addr=192.168.86.199,rw',
+            }
+        }, (err, volume) => {
+            console.log('UUU', err, volume);
+            if(err) {
+                console.trace(err);
+                return;
+            }
+            console.log('UUU ok')
+        })
+    
+    }
+
     async docker_container_run()
     {
         const job = this;
@@ -155,16 +181,20 @@ class Job
             exposed_ports = { "22/tcp": {}};
             port_bindings = { '22/tcp': [{'HostPort': job.ssh_user.docker_port.toString(), 
                                           'HostIp': job.ssh_user.docker_host}]};
-                                          //'HostIp': config.SSH_DRIVER_SERVER_HOST}]};
         }
+        console.log('PB', port_bindings);
+        const nfs_volume = board.docker.getVolume('userspace_out');
         const container = await board.docker.createContainer({
                                             Image: job.docker_image(),
                                             name: `session-${session_name}.job-${job_id}`,
                                             Cmd: ['/bin/bash'],
                                             Tty: true,
+                                            Volumes:{'/output': {}},
                                             ExposedPorts: exposed_ports,
                                             HostConfig: {
                                                 PortBindings: port_bindings,
+                                                Binds: ['userspace_out:/output',
+                                                        ],
                                                 AutoRemove: true
                                             }
                                         });
@@ -255,7 +285,14 @@ class Job
             return;
         }
 
-        console.log(`[J] image ready for [${LOG_BOARD(board)}], running...`);
+        console.log(`[J] image ready for [${LOG_BOARD(board)}], creating nfs mount...`);
+        try {
+            await job.docker_volume_create();
+        } catch(e) {
+            console.log(ERROR(`[J] Failed to mount the nfs userspace for job[${LOG_JOB(job)}], ${e}`));
+        };
+
+        console.log(`[J] userspace is successfully mount for [${LOG_BOARD(board)}], running...`);
         try {
             await job.docker_container_run();
         } catch(e) {

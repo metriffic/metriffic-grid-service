@@ -124,6 +124,7 @@ class SSHManager
                 user.client_stream = stream;
                 stream.on('close', () => {
                     console.log(`[SSHM] stream for job[${LOG_JOB(job)}] is closed`);
+                    // TBD: notify the job that it's done..
                 });
             });
         }).connect({

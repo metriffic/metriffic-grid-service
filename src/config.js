@@ -8,6 +8,7 @@ module.exports = {
     SSH_PORT_HOST_MIN  : 2000,
     SSH_PORT_HOST_MAX  : 10000,
 
-    USER_DATA_DIR_ROOT : '/home/metriffic/userspace/'
+    USERSPACE_DIR_ROOT : '/home/metriffic/userspace/',
+    USERSPACE_HOST : '192.168.86.199',
 }
   

@@ -66,12 +66,19 @@ class Metriffic
 
     on_user_added(data)
     {
-        const folder = path.join(config.USER_DATA_DIR_ROOT + data.username);
+        // TBD: can the directory name exist?
+        //      it shouldn't since the username is unique, but account recreation may potentially cause this...
+        const folder = path.join(config.USERSPACE_DIR_ROOT + data.username);
         fs.mkdirSync(folder, { recursive: false });
-        const output_folder = path.join(config.USER_DATA_DIR_ROOT, data.username, 'output');
+        const output_folder = path.join(config.USERSPACE_DIR_ROOT, data.username, 'output');
         fs.mkdirSync(output_folder, { recursive: false });
-        const input_folder = path.join(config.USER_DATA_DIR_ROOT, data.username, 'input');
+        const input_folder = path.join(config.USERSPACE_DIR_ROOT, data.username, 'input');
         fs.mkdirSync(input_folder, { recursive: false });
+
+        fs.chmodSync(output_folder, '0777');
+        // 65534 for nobody:nogroup
+        //fs.chownSync(output_folder, 65534, 65534)
+
         console.log(`[M] created userspace for user ${LOG_USER(data.username)}`);
     }
 
@@ -177,13 +184,13 @@ class Metriffic
             metriffic.grids[platform.id] = new Grid(platform);
             // pull boards for this platform
             const all_boards_gql = gql`
-                    query allBoards($platformId: Int!) {
-                        allBoards (platformId: $platformId) 
+                    query allBoards($platformName: String) {
+                        allBoards (platformName: $platformName) 
                         {id hostname description}
                     }`;
             metriffic_client.gql.query({
                             query: all_boards_gql,
-                            variables: {platformId: platform.id},
+                            variables: {platformName: platform.name},
                         })
             .then(function(all_boards) {
                 all_boards.data.allBoards.forEach(board => {
@@ -202,7 +209,7 @@ class Metriffic
     {
         const metriffic = this;
         const all_sessions_gql = gql`
-            query{ allSessions(platformId:-1) 
+            query{ allSessions(platformName: "" status: "SUBMITTED") 
               { id name type user{username} max_jobs datasets command platform{id} dockerImage{name}} 
             }`;
             
