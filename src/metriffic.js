@@ -68,18 +68,11 @@ class Metriffic
     {
         // TBD: can the directory name exist?
         //      it shouldn't since the username is unique, but account recreation may potentially cause this...
-        const folder = path.join(config.USERSPACE_DIR_ROOT + data.username);
-        fs.mkdirSync(folder, { recursive: false });
-        const output_folder = path.join(config.USERSPACE_DIR_ROOT, data.username, 'output');
-        fs.mkdirSync(output_folder, { recursive: false });
-        const input_folder = path.join(config.USERSPACE_DIR_ROOT, data.username, 'input');
-        fs.mkdirSync(input_folder, { recursive: false });
-
-        fs.chmodSync(output_folder, '0777');
-        // 65534 for nobody:nogroup
-        //fs.chownSync(output_folder, 65534, 65534)
-
-        console.log(`[M] created userspace for user ${LOG_USER(data.username)}`);
+        const user_folder = path.join(config.USERSPACE_DIR_ROOT + data.username);
+        fs.mkdirSync(user_folder, { recursive: false });
+        fs.chmodSync(user_folder, '0777');
+       
+        console.log(`[M] created workspace for user ${LOG_USER(data.username)}`);
     }
 
     async subscribe_to_gql_updates()

@@ -47,7 +47,7 @@ class Grid
         console.log('[G] stoping grid');
         // stop all running jobs
         this.running_jobs.forEach(function(rj) {
-            rj.stop();
+            rj.cancel();
         });
         this.running_jobs = [];
         // stop all subscribed job-managers
@@ -82,7 +82,6 @@ class Grid
 
     submit_session(session_params) 
     {
-
         session_params.job_complete_cb = (job) => this.job_complete_cb(this, job);
 
         const session = new Session(session_params);
@@ -97,8 +96,17 @@ class Grid
 
     dismiss_session(session) 
     {
+        console.log('stopping', session);
         // stop the session (it's container, etc)
         session.stop();
+        // remove it from the list of subscribers...
+        const session_index = this.subscribers.indexOf(session);
+        if (session_index > -1) {
+            this.subscribers.splice(session_index, 1);
+            console.log(`[G] dismissed session[${LOG_SESSION(session)}]...`);
+        } else {
+            console.log(ERROR(`[G] error: session[${LOG_SESSION(session)}] is not in the subscribers list!`));
+        }
     }
 
     schedule() 
@@ -117,7 +125,17 @@ class Grid
         while(grid.running_jobs.length < grid.boards.length &&
               num_skipped < grid.subscribers.length ) {
 
-            const job = grid.subscribers[0].accept_next();
+            const session = grid.subscribers[0];
+            
+            if(grid.subscribers[0].is_done()) {
+                this.dismiss_session(session);
+                continue;
+            }
+
+            const job = session.accept_next();
+            
+            // TBD: update the state of the session here!
+
             if(job) {
                 grid.running_jobs.push(job);
                 //[FIXME]
@@ -149,10 +167,10 @@ class Grid
         }
         this.running_jobs = update_running_jobs;
 
-        if(job.session.is_done()) {
-            console.log(`[G] all jobs of session[${LOG_SESSION(job.session)}] are done!`);
-            this.dismiss_session(job.session);
-        }
+        // if(job.session.is_done()) {
+        //     console.log(`[G] all jobs of session[${LOG_SESSION(job.session)}] are done!`);
+        //     this.dismiss_session(job.session);
+        // }
 
         this.schedule();
     }

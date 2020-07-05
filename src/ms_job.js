@@ -144,24 +144,19 @@ class Job
     async docker_volume_create()
     {
         const username = this.params.user;
-        console.log('UUU',username);
         await this.board.docker.createVolume({
-            Name: 'userspace_out', 
+            Name: 'workspace', 
             Driver: 'local', 
             DriverOpts: {
                 'type': 'nfs',
-                'device': ':' + path.join(config.USERSPACE_DIR_ROOT, username, 'output'),
+                'device': ':' + path.join(config.USERSPACE_DIR_ROOT, username),
                 'o': 'addr=' + config.USERSPACE_HOST + ',rw',
-                //'device': ':/home/metriffic/userspace/bla/output',
-                //'o': 'addr=192.168.86.199,rw',
             }
         }, (err, volume) => {
-            console.log('UUU', err, volume);
             if(err) {
                 console.trace(err);
                 return;
             }
-            console.log('UUU ok')
         })
     
     }
@@ -182,19 +177,16 @@ class Job
             port_bindings = { '22/tcp': [{'HostPort': job.ssh_user.docker_port.toString(), 
                                           'HostIp': job.ssh_user.docker_host}]};
         }
-        console.log('PB', port_bindings);
-        const nfs_volume = board.docker.getVolume('userspace_out');
         const container = await board.docker.createContainer({
                                             Image: job.docker_image(),
                                             name: `session-${session_name}.job-${job_id}`,
                                             Cmd: ['/bin/bash'],
                                             Tty: true,
-                                            Volumes:{'/output': {}},
+                                            Volumes:{'/workspace': {}},
                                             ExposedPorts: exposed_ports,
                                             HostConfig: {
                                                 PortBindings: port_bindings,
-                                                Binds: ['userspace_out:/output',
-                                                        ],
+                                                Binds: ['workspace:/workspace'],
                                                 AutoRemove: true
                                             }
                                         });
