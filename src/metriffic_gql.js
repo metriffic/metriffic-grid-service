@@ -44,7 +44,7 @@ class MetrifficGQL
               // set it on the `payload` which will be passed to the websocket with Apollo 
               // Server it becomes: `ApolloServer({contetx: ({payload}) => (returns options)
               payload.authorization = 'Bearer ' + token;
-              payload.endpoint = "grid_service";
+              payload.endpoint = config.GQL_ENDPOINT;
               next()
             },
           };

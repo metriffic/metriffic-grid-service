@@ -1,10 +1,11 @@
 const Job = require('./ms_job');
 const Session = require('./ms_session').Session;
-
-const LOG_JOB = require('./logging').LOG_JOB
-const LOG_BOARD = require('./logging').LOG_BOARD
-const LOG_SESSION = require('./logging').LOG_SESSION
-const ERROR = require('./logging').ERROR
+const {
+    LOG_JOB,
+    LOG_BOARD,
+    LOG_SESSION,
+    ERROR 
+ } = require('./logging')
 
 class Grid 
 {
