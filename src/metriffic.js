@@ -44,7 +44,6 @@ class Metriffic
         data.session_name = data.name;
         data.command = command;
         data.datasets = datasets,
-        data.ssh_docker_image = 'rpi3-ssh-runner';
         data.ssh_command = ["service", "ssh", "start"];
 
         grid.submit_session(data);

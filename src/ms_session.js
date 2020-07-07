@@ -119,7 +119,7 @@ class Session
                         out_file        : path.join(output_folder, 
                                                     'job.interactive.log'),
                         docker_registry : params.docker_registry,
-                        docker_image    : params.ssh_docker_image,
+                        docker_image    : params.docker_image,
                         docker_options  : params.docker_options,
                         type            : JobType.interactive,
                     };
