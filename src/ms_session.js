@@ -101,6 +101,7 @@ class Session
                                                     'job.'+ds+'.log'),
                         docker_registry : params.docker_registry,
                         docker_image    : params.docker_image,
+                        docker_options  : params.docker_options,
                         type            : JobType.batch,
                         };
                         // TBD: review the path
@@ -119,6 +120,7 @@ class Session
                                                     'job.interactive.log'),
                         docker_registry : params.docker_registry,
                         docker_image    : params.ssh_docker_image,
+                        docker_options  : params.docker_options,
                         type            : JobType.interactive,
                     };
             this.submit(new Job(jparams));         

@@ -145,7 +145,7 @@ class Job
     {
         const username = this.params.user;
         await this.board.docker.createVolume({
-            Name: 'workspace', 
+            Name: 'workspace.' + username, 
             Driver: 'local', 
             DriverOpts: {
                 'type': 'nfs',
@@ -157,8 +157,7 @@ class Job
                 console.trace(err);
                 return;
             }
-        })
-    
+        })    
     }
 
     async docker_container_run()
@@ -167,15 +166,19 @@ class Job
         const board = job.board;
         const job_id = this.params.uid;
         const session_name = this.params.session_name;
+        const workspace =  'workspace.' + this.params.user;
         var exposed_ports = {};
-        var port_bindings = {};
+        const host_config = this.params.docker_options && this.params.docker_options.HostConfig ? 
+                                this.params.docker_options.HostConfig : {};
 
+        host_config.Binds = [workspace + ':/workspace'];
+        host_config.AutoRemove = true;
         // if this is an interactive session, prepare ssh-manager and set up docker port forwarding
         if(job.is_interactive()) {
             ssh_manager.setup_session(job);
             exposed_ports = { "22/tcp": {}};
-            port_bindings = { '22/tcp': [{'HostPort': job.ssh_user.docker_port.toString(), 
-                                          'HostIp': job.ssh_user.docker_host}]};
+            host_config.PortBindings = { '22/tcp': [{'HostPort': job.ssh_user.docker_port.toString(), 
+                                                    'HostIp': job.ssh_user.docker_host}]};
         }
         const container = await board.docker.createContainer({
                                             Image: job.docker_image(),
@@ -184,11 +187,7 @@ class Job
                                             Tty: true,
                                             Volumes:{'/workspace': {}},
                                             ExposedPorts: exposed_ports,
-                                            HostConfig: {
-                                                PortBindings: port_bindings,
-                                                Binds: ['workspace:/workspace'],
-                                                AutoRemove: true
-                                            }
+                                            HostConfig: host_config,
                                         });
 
         console.log(`[J] starting container for job[${LOG_JOB(job)}] on board[${LOG_BOARD(board)}].`);

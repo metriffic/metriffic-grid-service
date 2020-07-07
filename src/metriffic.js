@@ -36,6 +36,7 @@ class Metriffic
         const command = JSON.parse(data.command);
         const datasets = JSON.parse(data.datasets)
         data.docker_image = data.dockerImage.name;
+        data.docker_options = data.dockerImage.options ? JSON.parse(data.dockerImage.options) : {};
         data.server_docker_image = 'ubuntu-provider-collector';
         data.docker_registry = "192.168.86.244:5000";
         data.user = data.user.username;
@@ -91,7 +92,7 @@ class Metriffic
         // subscribe to session updates
         const subscribe_sessions = gql`
         subscription subsSession { 
-            subsSession { mutation data {id, name, type, state, user{username}, platform{id}, dockerImage{name} max_jobs, datasets, command }}
+            subsSession { mutation data {id, name, type, state, user{username}, platform{id}, dockerImage{name options} max_jobs, datasets, command }}
         }`;
 
         metriffic_client.gql.subscribe({
