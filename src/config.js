@@ -9,5 +9,8 @@ module.exports = {
 
     SSH_PORT_HOST_MIN  : 2000,
     SSH_PORT_HOST_MAX  : 10000,
+
+    // TBD: this is the copy of the const stored in metriffic-workspaces service...
+    USERSPACE_DIR_ROOT : '/home/metriffic/userspace/',
 }
   
