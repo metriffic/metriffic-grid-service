@@ -114,7 +114,7 @@ class SSHManager
             this.shell({
                 term: process.env.TERM,
                 rows: process.stdout.rows,
-                cols: process.stdout.columns
+                cols: 10*process.stdout.columns
             }, (err, stream) => {
                 if (err) {
                     console.log(ERROR(`[SSHM] Failed capture the shell: ${err}`));
