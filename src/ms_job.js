@@ -176,6 +176,8 @@ class Job
         // if this is an interactive session, prepare ssh-manager and set up docker port forwarding
         if(job.is_interactive()) {
             ssh_manager.setup_session(job);
+            job.params.command = ["/bin/bash", "-c", `echo -e \"${job.ssh_user.password}\\n${job.ssh_user.password}\" | passwd root; service ssh start`],
+
             exposed_ports = { "22/tcp": {}};
             host_config.PortBindings = { '22/tcp': [{'HostPort': job.ssh_user.docker_port.toString(), 
                                                     'HostIp': job.ssh_user.docker_host}]};
@@ -206,11 +208,11 @@ class Job
                     // if this is an interactive session: set up update the data and publish it to the user...
             if(job.is_interactive() && job.ssh_user) {
                 const ssh_user = job.ssh_user;
-                ssh_user.hostname = job.container.id.slice(0,12);
+                //ssh_user.container = job.container.id.slice(0,12);
                 ssh_manager.start_session(job);
                 publish_to_user_stream(job.params.user, {
-                                        port: config.SSH_EXTERNAL_PORT,
-                                        host: ssh_user.hostname,
+                                        port: ssh_user.docker_port,
+                                        host: ssh_user.docker_host,
                                         username: ssh_user.username,
                                         password: ssh_user.password
                                     });

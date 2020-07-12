@@ -114,7 +114,7 @@ class Session
                         uid             : shortid.generate(),
                         session_name    : params.name,
                         user            : params.user,
-                        command         : params.ssh_command,
+                        command         : [],
                         complete_cb     : params.job_complete_cb,
                         out_file        : path.join(output_folder, 
                                                     'job.interactive.log'),
