@@ -12,5 +12,6 @@ module.exports = {
 
     // TBD: this is the copy of the const stored in metriffic-workspaces service...
     USERSPACE_DIR_ROOT : '/home/metriffic/userspace/',
+    USERSPACE_HOST : '192.168.86.199',
 }
   
