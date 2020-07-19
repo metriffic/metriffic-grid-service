@@ -20,7 +20,7 @@ class MetrifficGQL
         var options = {
             algorithm:  "RS256"    
         };
-        const grid_manager_private_key  = fs.readFileSync('./grid_service_private.key', 'utf8');
+        const grid_manager_private_key  = fs.readFileSync(config.GRID_SERVICE_PRIVATE_KEY_FILE, 'utf8');
         const token = jwt.sign({who: "grid_service"}, grid_manager_private_key, options);
         
         const WS_ENDPOINT = "ws://" + config.GQL_HOSTNAME + ":" + config.GQL_PORT + "/graphql";

@@ -1,3 +1,5 @@
+const path   = require('path');
+
 module.exports = {
     GQL_HOSTNAME: 'localhost',
     GQL_PORT: 4000,
@@ -13,5 +15,7 @@ module.exports = {
     // TBD: this is the copy of the const stored in metriffic-workspaces service...
     USERSPACE_DIR_ROOT : '/home/metriffic/userspace/',
     USERSPACE_HOST : '192.168.86.199',
+
+    GRID_SERVICE_PRIVATE_KEY_FILE: path.join('keys', 'grid_service_private.key'),
 }
   
