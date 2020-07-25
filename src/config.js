@@ -1,8 +1,7 @@
 const path   = require('path');
 
 module.exports = {
-    GQL_HOSTNAME: process.env['METRIFFIC_GQL_HOSTNAME'],
-    GQL_PORT: process.env['METRIFFIC_GQL_PORT'],
+    GQL_ADDRESS: process.env['METRIFFIC_GQL_ADDRESS'],
 
     GQL_ENDPOINT: "grid_service",
     

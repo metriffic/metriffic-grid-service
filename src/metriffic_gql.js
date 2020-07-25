@@ -9,10 +9,6 @@ const { InMemoryCache } = require("apollo-cache-inmemory");
 const { WebSocketLink } = require('apollo-link-ws');
 const { SubscriptionClient } = require("subscriptions-transport-ws");
 
-// use 'utf8' to get string instead of byte array  (512 bit key)
-
-
-
 class MetrifficGQL
 {       
     constructor() 
@@ -23,7 +19,7 @@ class MetrifficGQL
         const grid_manager_private_key  = fs.readFileSync(config.GRID_SERVICE_PRIVATE_KEY_FILE, 'utf8');
         const token = jwt.sign({who: "grid_service"}, grid_manager_private_key, options);
         
-        const WS_ENDPOINT = "ws://" + config.GQL_HOSTNAME + ":" + config.GQL_PORT + "/graphql";
+        const WS_ENDPOINT = config.GQL_ADDRESS;
         console.log('[MC] initializing metriffic client to ', WS_ENDPOINT);
 
         const wsClient = new SubscriptionClient(
