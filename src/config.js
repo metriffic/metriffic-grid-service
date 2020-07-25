@@ -1,21 +1,18 @@
 const path   = require('path');
 
 module.exports = {
-    GQL_HOSTNAME: 'localhost',
-    GQL_PORT: 4000,
+    GQL_HOSTNAME: process.env['METRIFFIC_GQL_HOSTNAME'],
+    GQL_PORT: process.env['METRIFFIC_GQL_PORT'],
 
     GQL_ENDPOINT: "grid_service",
-
-    SSH_EXTERNAL_PORT  : 2222,
-    SSH_DRIVER_SERVER_HOST : '192.168.86.199',
-
-    SSH_PORT_HOST_MIN  : 2000,
-    SSH_PORT_HOST_MAX  : 10000,
+    
+    SSH_PORT_HOST_MIN: process.env['METRIFFIC_SSH_PORT_HOST_MIN'],
+    SSH_PORT_HOST_MAX: process.env['METRIFFIC_SSH_PORT_HOST_MAX'],
 
     // TBD: this is the copy of the const stored in metriffic-workspaces service...
-    USERSPACE_DIR_ROOT : '/home/metriffic/userspace/',
-    USERSPACE_HOST : '192.168.86.199',
+    USERSPACE_DIR_ROOT : process.env['METRIFFIC_USERSPACE_NFS_ROOT'],
+    USERSPACE_HOST : process.env['METRIFFIC_USERSPACE_NFS_HOST'],
 
-    GRID_SERVICE_PRIVATE_KEY_FILE: path.join('keys', 'grid_service_private.key'),
+    GRID_SERVICE_PRIVATE_KEY_FILE: process.env['METRIFFIC_GRID_SERVICE_PRIVATE_KEY_FILE'],
 }
   
