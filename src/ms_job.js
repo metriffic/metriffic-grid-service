@@ -124,15 +124,21 @@ class Job
         const board = this.board;
 
         const pull = new Promise(function(resolve, reject) {
+            const auth = {
+                username: 'admin',
+                password: 'admin',
+                serveraddress: 'https://docker.metriffic.com'
+            };
+            //const auth = { key: 'yJ1J2ZXJhZGRyZXNzIjoitZSI6Im4OCIsImF1dGgiOiIiLCJlbWFpbCI6ImZvbGllLmFkcmc2VybmF0iLCJzZX5jb2aHR0cHM6Ly9pbmRleC5kb2NrZXIuaW8vdZvbGllYSIsInBhc3N3b3JkIjoiRGVjZW1icmUjEvIn0=' }
             board.docker.pull(
                 job.docker_image(),
+                {'authconfig': auth},
                 function (err, stream) {
                 if (err) {
                     console.log(ERROR(`[J] failed to start exec modem: ${err}`));
                     return reject();
                 }
                 let message = '';
-                if(err) return reject(err);
                 stream.on('data', data => { message += data });
                 stream.on('end', () => resolve(message));
                 stream.on('error', err => reject(err));
