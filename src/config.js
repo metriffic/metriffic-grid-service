@@ -14,6 +14,8 @@ module.exports = {
     USERSPACE_HOST : env.get('METRIFFIC_USERSPACE_NFS_HOST').required().asString(),
 
     DOCKER_REGISTRY_HOST : env.get('METRIFFIC_DOCKER_REGISTRY_HOST').required().asString(),
-    
+    DOCKER_REGISTRY_USERNAME: env.get('METRIFFIC_DOCKER_REGISTRY_USERNAME').required().asString(),
+    DOCKER_REGISTRY_PASSWORD: env.get('METRIFFIC_DOCKER_REGISTRY_PASSWORD').required().asString(),
+
     GRID_SERVICE_PRIVATE_KEY_FILE: env.get('METRIFFIC_GRID_SERVICE_PRIVATE_KEY_FILE').required().asString(),
 }

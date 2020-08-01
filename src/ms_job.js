@@ -102,17 +102,25 @@ class Job
         const promises = containers.map(function(cntr) {
                     console.log(`[J] stopping container[${LOG_CONTAINER(cntr.Id)}]....`);
                     const container = board.docker.getContainer(cntr.Id);
-                    return container.stop()
-                    .then(function(data){
+                    return container.remove({ 
+                        force: true,  // force removal
+                        v: true       // remove associated volumes as well
+                    }).then(function(data){
                         console.log('[J] done.');
-                    }).catch(function(data) {
-                        console.log(ERROR('[J] failed to stop the container, removing...'));
-                        container.remove().catch(function(){
-                            console.log(ERROR('[J] failed to remove the container as well, giving up!'));
-                        });
                     }).finally(function(data){
                         console.log(`[J] container cleanup done for board[${LOG_BOARD(board)}].`);
                     });
+                    //return container.stop()
+                    //.then(function(data){
+                    //    console.log('[J] done.');
+                    //}).catch(function(data) {
+                    //    console.log(ERROR('[J] failed to stop the container, removing...'));
+                    //    container.remove().catch(function(){
+                    //        console.log(ERROR('[J] failed to remove the container as well, giving up!'));
+                    //    });
+                    //}).finally(function(data){
+                    //    console.log(`[J] container cleanup done for board[${LOG_BOARD(board)}].`);
+                    //});
                 });
 
         await Promise.all(promises);
@@ -125,9 +133,9 @@ class Job
 
         const pull = new Promise(function(resolve, reject) {
             const auth = {
-                username: 'admin',
-                password: 'admin',
-                serveraddress: 'https://docker.metriffic.com'
+                username: config.DOCKER_REGISTRY_USERNAME,
+                password: config.DOCKER_REGISTRY_PASSWORD,
+                serveraddress: config.DOCKER_REGISTRY_HOST,
             };
             //const auth = { key: 'yJ1J2ZXJhZGRyZXNzIjoitZSI6Im4OCIsImF1dGgiOiIiLCJlbWFpbCI6ImZvbGllLmFkcmc2VybmF0iLCJzZX5jb2aHR0cHM6Ly9pbmRleC5kb2NrZXIuaW8vdZvbGllYSIsInBhc3N3b3JkIjoiRGVjZW1icmUjEvIn0=' }
             board.docker.pull(
