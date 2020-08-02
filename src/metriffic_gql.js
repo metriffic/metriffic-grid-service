@@ -17,7 +17,7 @@ class MetrifficGQL
             algorithm:  "RS256"    
         };
         const grid_manager_private_key  = fs.readFileSync(config.GRID_SERVICE_PRIVATE_KEY_FILE, 'utf8');
-        const token = jwt.sign({who: "grid_service"}, grid_manager_private_key, options);
+        const token = jwt.sign({who: config.GQL_ENDPOINT}, grid_manager_private_key, options);
         
         const WS_ENDPOINT = config.GQL_ADDRESS;
         console.log('[MC] initializing metriffic client to ', WS_ENDPOINT);
