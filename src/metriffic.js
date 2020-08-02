@@ -3,6 +3,7 @@ const Grid = require('./ms_grid').Grid;
 const metriffic_client = require('./metriffic_gql').metriffic_client
 const gql = require('graphql-tag');
 const ERROR = require('./logging').ERROR
+const config = require('./config')
 
 class Metriffic 
 {       
