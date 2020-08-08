@@ -100,13 +100,15 @@ class Job
         const containers = await list_containers;
 
         const promises = containers.map(function(cntr) {
-                    console.log(`[J] stopping container[${LOG_CONTAINER(cntr.Id)}]....`);
+                    console.log(`[J] removing container[${LOG_CONTAINER(cntr.Id)}]....`);
                     const container = board.docker.getContainer(cntr.Id);
                     return container.remove({ 
                         force: true,  // force removal
                         v: true       // remove associated volumes as well
                     }).then(function(data){
                         console.log('[J] done.');
+                    }).catch(function(err){
+                        //console.log(`[J] remove container error [${LOG_BOARD(board)}], ${err}`);
                     }).finally(function(data){
                         console.log(`[J] container cleanup done for board[${LOG_BOARD(board)}].`);
                     });
