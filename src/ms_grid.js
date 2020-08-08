@@ -59,10 +59,10 @@ class Grid
     }
 
     register_board(brd) 
-    {
+    {        
+        this.boards.push(brd);
         console.log(`[G] registered board[${LOG_BOARD(brd)}], ` +
                     `total ${this.boards.length} boards.`);
-        this.boards.push(brd);
     }
     unregister_board(brd) 
     {
