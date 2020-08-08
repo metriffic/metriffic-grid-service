@@ -157,16 +157,19 @@ class Job
         await pull;
     }
 
+
     async docker_volume_create()
     {
         const username = this.params.user;
+        const workspace = this.params.workspace;
+        const workspace_host = config.USERSPACE_HOST;
         await this.board.docker.createVolume({
             Name: 'workspace.' + username, 
             Driver: 'local', 
             DriverOpts: {
                 'type': 'nfs',
-                'device': ':' + path.join(config.USERSPACE_DIR_ROOT, username),
-                'o': 'addr=' + config.USERSPACE_HOST + ',rw',
+                'device': ':' + workspace,
+                'o': 'addr=' + workspace_host + ',rw',
             }
         }, (err, volume) => {
             if(err) {

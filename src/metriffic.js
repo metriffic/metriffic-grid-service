@@ -38,10 +38,8 @@ class Metriffic
         const datasets = JSON.parse(data.datasets)
         data.docker_image = data.dockerImage.name;
         data.docker_options = data.dockerImage.options ? JSON.parse(data.dockerImage.options) : {};
-        data.server_docker_image = 'ubuntu-provider-collector';
         data.docker_registry = config.DOCKER_REGISTRY_HOST;
         data.user = data.user.username;
-        data.project = 'test-project';
         data.session_name = data.name;
         data.command = command;
         data.datasets = datasets,

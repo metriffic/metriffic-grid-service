@@ -83,8 +83,7 @@ class Session
 
         console.log(`[S] starting session [${LOG_SESSION(this)}]`);
 
-        const [folder, output_folder] = this.create_workspace();
-        const input_folder = params.datasets;
+        const [folder, output_folder] = this.create_session_output_folder();
         console.log(`[S] created folders: ${folder}, ${output_folder}`);
 
         // prepare volumes and binding for the provide-collector container...
@@ -98,8 +97,8 @@ class Session
                         dataset         : ds,
                         command         : params.command,
                         complete_cb     : params.job_complete_cb,
-                        out_file        : path.join(output_folder, 
-                                                    'job.'+ds+'.log'),
+                        out_file        : path.join(output_folder, 'job.'+ds+'.log'),
+                        workspace       : path.join(config.USERSPACE_DIR_ROOT, params.user),    
                         docker_registry : params.docker_registry,
                         docker_image    : params.docker_image,
                         docker_options  : params.docker_options,
@@ -117,8 +116,8 @@ class Session
                         user            : params.user,
                         command         : [],
                         complete_cb     : params.job_complete_cb,
-                        out_file        : path.join(output_folder, 
-                                                    'job.interactive.log'),
+                        out_file        : path.join(output_folder, 'job.interactive.log'),
+                        workspace       : path.join(config.USERSPACE_DIR_ROOT, params.user),
                         docker_registry : params.docker_registry,
                         docker_image    : params.docker_image,
                         docker_options  : params.docker_options,
@@ -141,9 +140,9 @@ class Session
         // this.stop_server_side_container();
     }
 
-    create_workspace() 
+    create_session_output_folder() 
     {
-        const folder = path.join(this.params.user, this.params.project, this.session_id() + '.run');
+        const folder = path.join(config.USERSPACE_DIR_ROOT, params.user, 'sessions', this.session_id());
         const output_folder = path.join(folder, 'output');
         fs.mkdirSync(folder, { recursive: true });
         fs.mkdirSync(output_folder, { recursive: true });
@@ -157,88 +156,6 @@ class Session
         this.submitted.push(job);
         console.log(`[S] submitting job [${LOG_JOB(job)}] to session[${LOG_SESSION(this)}], `+ 
                     `total submitted: ${this.submitted.length} jobs`);
-    }
-
-
-
-    start_service_side_container() 
-    {
-         // launch the provider-collector docker
-        console.log('[S] starting the server-side docker for the session...');
-        const docker = new dockerode({ socketPath: '/var/run/docker.sock' });
-        const session = this;
-        const pc_container_name = 'pc.' + this.session_id();
-        const docker_image = params.docker_registry + '/' + params.server_docker_image;
-
-        return new Promise(function(resolve, reject){ 
-            docker.listContainers({
-                name: [pc_container_name]
-            }).then(function(containers) {
-                const promises = containers.map(async function(cntr) {
-                        console.log(`[S] stopping container [${LOG_CONTAINER(cntr.Id)}]....`);
-                        const container = docker.getContainer(cntr.Id);
-                        return container.stop()
-                        .then(function(data){
-                            console.log('[S] done.');
-                        }).catch(function(data) {
-                            console.log(ERROR('[S] failed to stop the container, removing...'));
-                            container.remove();
-                        }).finally(function(data){
-                            console.log(`[S] container cleanup done for sesion ${LOG_SESSION(session)}...`);
-                        });
-                    });
-
-                return Promise.all(promises);
-            }).then(function() {
-                return new Promise(function(resolve, reject) {
-                    docker.pull(
-                        docker_image,
-                        function (err, stream) {
-                        if (err) {
-                            console.log(ERROR('[S] failed to start exec modem...'));
-                            return reject();
-                        }
-
-                        let message = '';
-                        if(err) return reject(err);
-                        stream.on('data', data => message += data);
-                        stream.on('end', () => resolve(message));
-                        stream.on('error', err => reject(err));
-                    });
-                });
-            }).then(function(msg) {
-                //session.start_new_container(docker, session, params, volumes, bindings);
-                    console.log(`[S] creating container for sesion ${LOG_SESSION(session)}...`);
-                    return docker.createContainer({
-                            Image: docker_image,
-                            Volumes: volumes,
-                            HostConfig: { 
-                                Binds: bindings,
-                                AutoRemove: true
-                            },
-                            name: pc_container_name,
-                            Tty: true,
-                            Cmd: ['/bin/bash'],
-                    });
-            }).then(function(container) {
-                session.server_container = container;
-                console.log(`[S] starting server container [${LOG_CONTAINER(session.server_container.id)}]`);
-                return session.server_container.start();
-            }).then(function(data) {
-                console.log('[S] server container started');
-                resolve();
-            });
-                    
-        });
-    }
-    stop_service_side_container() 
-    {
-        this.server_container.stop()
-        .then(function(data) {
-            console.log('[S] stopped!');
-        }).catch(function(data) {
-            console.log('[S] caught error when stopping...!');
-        });
     }
 };
 

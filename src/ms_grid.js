@@ -97,7 +97,6 @@ class Grid
 
     dismiss_session(session) 
     {
-        console.log('stopping', session);
         // stop the session (it's container, etc)
         session.stop();
         // remove it from the list of subscribers...
