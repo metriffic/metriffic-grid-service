@@ -94,6 +94,7 @@ class Session
                     const jparams = {
                         uid             : shortid.generate(),
                         session_name    : params.name,
+                        user            : params.user,
                         dataset         : ds,
                         command         : params.command,
                         complete_cb     : params.job_complete_cb,
