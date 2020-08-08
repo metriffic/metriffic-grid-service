@@ -4,6 +4,7 @@ const fs = require('fs');
 const shortid = require('shortid');
 const JobType = require('./ms_job').JobType;
 const Job = require('./ms_job').Job;
+const config = require('./config')
 
 const LOG_JOB = require('./logging').LOG_JOB
 const LOG_SESSION = require('./logging').LOG_SESSION
@@ -98,7 +99,7 @@ class Session
                         command         : params.command,
                         complete_cb     : params.job_complete_cb,
                         out_file        : path.join(output_folder, 'job.'+ds+'.log'),
-                        workspace       : path.join(config.USERSPACE_DIR_ROOT, params.user),    
+                        workspace       : path.join(config.USERSPACE_NFS_DIR_ROOT, params.user),    
                         docker_registry : params.docker_registry,
                         docker_image    : params.docker_image,
                         docker_options  : params.docker_options,
@@ -117,7 +118,7 @@ class Session
                         command         : [],
                         complete_cb     : params.job_complete_cb,
                         out_file        : path.join(output_folder, 'job.interactive.log'),
-                        workspace       : path.join(config.USERSPACE_DIR_ROOT, params.user),
+                        workspace       : path.join(config.USERSPACE_NFS_DIR_ROOT, params.user),
                         docker_registry : params.docker_registry,
                         docker_image    : params.docker_image,
                         docker_options  : params.docker_options,
@@ -142,7 +143,7 @@ class Session
 
     create_session_output_folder() 
     {
-        const folder = path.join(config.USERSPACE_DIR_ROOT, params.user, 'sessions', this.session_id());
+        const folder = path.join(config.USERSPACE_DIR_ROOT, this.params.user, 'sessions', this.session_id());
         const output_folder = path.join(folder, 'output');
         fs.mkdirSync(folder, { recursive: true });
         fs.mkdirSync(output_folder, { recursive: true });

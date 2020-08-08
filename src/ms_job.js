@@ -162,7 +162,7 @@ class Job
     {
         const username = this.params.user;
         const workspace = this.params.workspace;
-        const workspace_host = config.USERSPACE_HOST;
+        const workspace_host = config.USERSPACE_NFS_HOST;
         await this.board.docker.createVolume({
             Name: 'workspace.' + username, 
             Driver: 'local', 

@@ -12,6 +12,10 @@ module.exports = {
     // TBD: this is the copy of the const stored in metriffic-workspaces service...
     USERSPACE_DIR_ROOT : env.get('METRIFFIC_USERSPACE_NFS_ROOT').required().asString(),
     USERSPACE_HOST : env.get('METRIFFIC_USERSPACE_NFS_HOST').required().asString(),
+    USERSPACE_NFS_HOST : env.get('METRIFFIC_USERSPACE_NFS_HOST').required().asString(),
+    USERSPACE_NFS_DIR_ROOT : env.get('METRIFFIC_USERSPACE_NFS_ROOT').required().asString(),
+    USERSPACE_DIR_ROOT : env.get('METRIFFIC_USERSPACE_ROOT').required().asString(),
+
 
     DOCKER_REGISTRY_HOST : env.get('METRIFFIC_DOCKER_REGISTRY_HOST').required().asString(),
     DOCKER_REGISTRY_USERNAME: env.get('METRIFFIC_DOCKER_REGISTRY_USERNAME').required().asString(),
