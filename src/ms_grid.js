@@ -158,7 +158,7 @@ class Grid
         
         const update_running_jobs = [];
         this.running_jobs.forEach(rj => {
-            if( rj.params.uid != job.params.uid) {
+            if( rj.params.id != job.params.id) {
                 update_running_jobs.push(rj);
             }
         });

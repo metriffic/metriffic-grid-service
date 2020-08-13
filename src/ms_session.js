@@ -6,6 +6,9 @@ const JobType = require('./ms_job').JobType;
 const Job = require('./ms_job').Job;
 const config = require('./config')
 
+const gql = require('graphql-tag');
+const metriffic_client = require('./metriffic_gql').metriffic_client
+
 const LOG_JOB = require('./logging').LOG_JOB
 const LOG_SESSION = require('./logging').LOG_SESSION
 const LOG_TIME = require('./logging').LOG_TIME
@@ -61,7 +64,7 @@ class Session
     {
         const running_updated = [];
         this.running.forEach(rj => {
-            if( rj.params.uid == job.params.uid) {
+            if( rj.params.id == job.params.id) {
                 console.log(`[S] removed completed job [${LOG_JOB(job)}], \n`,
                             `\t\tsubmitted\t${LOG_TIME(job.submit_timestamp)}, \n`,
                             `\t\tstarted  \t${LOG_TIME(job.start_timestamp)} \n`,
@@ -92,7 +95,6 @@ class Session
         if(this.is_batch()) {
             params.datasets.forEach( ds => {
                     const jparams = {
-                        uid             : shortid.generate(),
                         session_name    : params.name,
                         user            : params.user,
                         dataset         : ds,
@@ -112,7 +114,6 @@ class Session
         } else 
         if(this.is_interactive()) {
                     const jparams = {
-                        uid             : shortid.generate(),
                         session_name    : params.name,
                         user            : params.user,
                         command         : [],
@@ -152,11 +153,27 @@ class Session
 
     submit(job) 
     {
-        job.session = this;
-        job.submit_timestamp = Date.now();
-        this.submitted.push(job);
-        console.log(`[S] submitting job [${LOG_JOB(job)}] to session[${LOG_SESSION(this)}], `+ 
-                    `total submitted: ${this.submitted.length} jobs`);
+        const session = this;
+        job.session = session;
+        
+        const mutation_submit_job = gql`
+        mutation ms($sessionId: Int!, $dataset: String!) { 
+            jobCreate(sessionId: $sessionId, dataset: $dataset) 
+            { id } 
+        }`;
+        metriffic_client.gql.mutate({
+            mutation: mutation_submit_job,
+            variables: { sessionId: this.params.id, 
+                        dataset: job.params.dataset }
+        }).then(function(ret) {
+            job.params.id = ret.data.jobCreate.id;
+            job.submit_timestamp = Date.now();
+            session.submitted.push(job);
+            console.log(`[S] submitted job [${LOG_JOB(job)}] for session[${LOG_SESSION(session)}], `+ 
+                        `total submitted: ${session.submitted.length} jobs`);
+        }).catch(function(err){
+            //console.log('ERROR in jobCreate', err);
+        });
     }
 };
 
