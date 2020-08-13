@@ -91,8 +91,11 @@ class Grid
         console.log(`[G] subscribed session[${LOG_SESSION(session)}], ` +
                     `total ${this.subscribers.length} subscribers.`);
         
-        session.start();
-        this.schedule();
+        session.start()
+        .then(() => {
+            this.schedule();
+        });
+
     }
 
     dismiss_session(session) 
