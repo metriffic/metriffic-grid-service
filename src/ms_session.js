@@ -22,6 +22,7 @@ class Session
         this.params = params;
         this.submitted = [];
         this.running = [];
+        this.total_jobs = 0;
         console.log('[S] initialized session with following params:\n',
                     `${JSON.stringify(this.params, undefined, 2)}`);
     }
@@ -52,6 +53,24 @@ class Session
         if(this.submitted.length && this.running.length < this.params.max_jobs) {
             
             const session = this;
+            if(session.total_jobs == session.submitted.length) { 
+                const mutation_running_session = gql`
+                mutation running_session($name: String!, $state: String!) { 
+                    sessionUpdate(name: $name, state: $state) 
+                    { id } 
+                }`;
+                metriffic_client.gql.mutate({
+                    mutation: mutation_running_session,
+                    variables: { name: session.params.name, 
+                                 state: JobState.running }
+                }).then(function(ret) {
+                    // nothing
+                }).catch(function(err){
+                    console.log(ERROR(`[S] failed to update BE with 'running session' request [${LOG_SESSION(session)}]: ${err}.`));
+                });
+            }
+
+
             const job = session.submitted.shift();
             session.running.push(job);
 
@@ -98,14 +117,14 @@ class Session
                 metriffic_client.gql.mutate({
                     mutation: mutation_complete_job,
                     variables: { jobId: running_job.params.id, 
-                                 state: JobState.completed }
+                                 state: job.state }
                 }).then(function(ret) {
                     // nothing
                 }).catch(function(err){
                     console.log(ERROR(`[S] failed to update BE with 'complete job' request [${LOG_JOB(running_job)}]: ${err}.`));
                 });
             } else {
-                running_updated.push(rj);
+                running_updated.push(running_job);
             }
         });
         if(running_updated.length == this.running.length) {
@@ -113,7 +132,6 @@ class Session
                         `found in the list of running jobs`));
         }
         this.running = running_updated;
-
     }
 
     async start() 
@@ -171,6 +189,7 @@ class Session
     
     async stop() 
     {  
+        const session = this;
         console.log('[S] stopping the session');
         this.running.forEach(running_job => {
             running_job.cancel();
@@ -189,10 +208,24 @@ class Session
             }).catch(function(err){
                 console.log(ERROR(`[S] failed to update BE with 'cancel job' request [${LOG_JOB(running_job)}]: ${err}.`));
             });
-
-
         });
-        // this.stop_server_side_container();
+        
+        const session_state = (this.running.length == 0 && this.submitted.length == 0) ? JobState.completed : JobState.canceled;
+
+        const mutation_stop_session = gql`
+        mutation stop_session($name: String!, $state: String!) { 
+            sessionUpdate(name: $name, state: $state) 
+            { id } 
+        }`;
+        metriffic_client.gql.mutate({
+            mutation: mutation_stop_session,
+            variables: { name: session.params.name, 
+                         state: session_state }
+        }).then(function(ret) {
+            // nothing
+        }).catch(function(err){
+            console.log(ERROR(`[S] failed to update BE with 'cancel session' request [${LOG_SESSION(session)}]: ${err}.`));
+        });
     }
 
     create_session_output_folder() 
@@ -206,15 +239,13 @@ class Session
 
     async submit(jobs) 
     {
+        this.total_jobs = jobs.length;
         const session = this;
-
 
         // update the BE
         const datasets = jobs.map(j => {
             return j.params.dataset;
         });
-        console.log('A', datasets);
-        console.log('B', JSON.stringify(datasets));
 
         const mutation_submit_job = gql`
         mutation ms($sessionId: Int!, $datasets: String!) { 
