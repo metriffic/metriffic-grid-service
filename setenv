@@ -1,6 +1,12 @@
 export METRIFFIC_GRID_SERVICE_PRIVATE_KEY_FILE=/home/vazgen/workspace/METRIFFIC/metriffic-grid-service/keys/grid_service_private.key 
 export METRIFFIC_GQL_ADDRESS=ws://localhost:4000/graphql
-export METRIFFIC_USERSPACE_NFS_HOST='localhost'
+export METRIFFIC_NFS_HOST=localhost
 export METRIFFIC_USERSPACE_NFS_ROOT=/home/metriffic/userspace/
-export METRIFFIC_SSH_PORT_HOST_MIN=2001;
-export METRIFFIC_SSH_PORT_HOST_MAX=2999;
+export METRIFFIC_PUBLICSPACE_NFS_ROOT=/home/metriffic/publicspace/
+export METRIFFIC_USERSPACE_ROOT=/home/metriffic/userspace/
+export METRIFFIC_SSH_PORT_HOST_MIN=2001
+export METRIFFIC_SSH_PORT_HOST_MAX=2999
+export METRIFFIC_DOCKER_REGISTRY_HOST="localhost:5000"
+export METRIFFIC_DOCKER_REGISTRY_USERNAME=admin
+export METRIFFIC_DOCKER_REGISTRY_PASSWORD=admin
+

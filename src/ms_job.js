@@ -144,15 +144,15 @@ class Job
                 job.docker_image(),
                 {'authconfig': auth},
                 function (err, stream) {
-                if (err) {
-                    console.log(ERROR(`[J] failed to start exec modem: ${err}`));
-                    return reject();
-                }
-                let message = '';
-                stream.on('data', data => { message += data });
-                stream.on('end', () => resolve(message));
-                stream.on('error', err => reject(err));
-            });
+                    if (err) {
+                        console.log(ERROR(`[J] failed to start exec modem: ${err}`));
+                        return reject();
+                    }
+                    let message = '';
+                    stream.on('data', data => { message += data });
+                    stream.on('end', () => resolve(message));
+                    stream.on('error', err => reject(err));
+                });
         }); 
         await pull;
     }
@@ -160,16 +160,17 @@ class Job
 
     async docker_volume_create()
     {
+        const nfs_host = config.NFS_HOST;
+
         const username = this.params.user;
-        const workspace = this.params.workspace;
-        const workspace_host = config.USERSPACE_NFS_HOST;
+        const userspace = this.params.userspace;
         await this.board.docker.createVolume({
             Name: 'workspace.' + username, 
             Driver: 'local', 
             DriverOpts: {
                 'type': 'nfs',
-                'device': ':' + workspace,
-                'o': 'addr=' + workspace_host + ',rw',
+                'device': ':' + userspace,
+                'o': 'addr=' + nfs_host + ',rw',
             }
         }, (err, volume) => {
             if(err) {
@@ -185,12 +186,16 @@ class Job
         const board = job.board;
         const job_id = this.params.uid;
         const session_name = this.params.session_name;
-        const workspace =  'workspace.' + this.params.user;
+        const userspace =  'workspace.' + this.params.user;
+        const publicspace = 'publicspace';
         var exposed_ports = {};
         const host_config = this.params.docker_options && this.params.docker_options.HostConfig ? 
                                 this.params.docker_options.HostConfig : {};
 
-        host_config.Binds = [workspace + ':/workspace'];
+        host_config.Binds = [
+            userspace + ':/workspace', 
+            publicspace + ':/publicspace',
+        ];
         host_config.AutoRemove = true;
         // if this is an interactive session, prepare ssh-manager and set up docker port forwarding
         if(job.is_interactive()) {
@@ -206,7 +211,10 @@ class Job
                                             name: `session-${session_name}.job-${job_id}`,
                                             Cmd: ['/bin/bash'],
                                             Tty: true,
-                                            Volumes:{'/workspace': {}},
+                                            Volumes:{
+                                                '/workspace': {},
+                                                '/publicspace': {}
+                                            },
                                             ExposedPorts: exposed_ports,
                                             HostConfig: host_config,
                                         });
@@ -293,7 +301,7 @@ class Job
         try {
             await job.docker_image_pull();
         } catch(e) {
-            console.log(ERROR(`[J] failed to pull image [${this.docker_image()}] on board[${LOG_BOARD(board)}]...`));
+            console.log(ERROR(`[J] error: failed to pull image [${this.docker_image()}] on board[${LOG_BOARD(board)}]...`));
             return;
         }
 
@@ -301,14 +309,14 @@ class Job
         try {
             await job.docker_volume_create();
         } catch(e) {
-            console.log(ERROR(`[J] Failed to mount the nfs userspace for job[${LOG_JOB(job)}], ${e}`));
+            console.log(ERROR(`[J] error: failed to mount the nfs userspace for job[${LOG_JOB(job)}], ${e}`));
         };
 
         console.log(`[J] userspace is successfully mount for [${LOG_BOARD(board)}], running...`);
         try {
             await job.docker_container_run();
         } catch(e) {
-            console.log(ERROR(`[J] Failed to start the container for job[${LOG_JOB(job)}], ${e}`));
+            console.log(ERROR(`[J] error: failed to start the container for job[${LOG_JOB(job)}], ${e}`));
         };
 
         // TBD: handle the case when job.container is null!
@@ -317,7 +325,7 @@ class Job
         try {
             await job.docker_container_exec();
         } catch(e) {
-            console.log(ERROR(`[J] failed to exec the container for job[${LOG_JOB(job)}] on board[${LOG_BOARD(board)}], error: ${e}...`));
+            console.log(ERROR(`[J] error: failed to exec the container for job[${LOG_JOB(job)}] on board[${LOG_BOARD(board)}], error: ${e}...`));
         }
 
         if(job.is_batch()) {
