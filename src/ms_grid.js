@@ -4,6 +4,7 @@ const {
     LOG_JOB,
     LOG_BOARD,
     LOG_SESSION,
+    LOG_IMAGE,
     ERROR 
  } = require('./logging')
 
@@ -109,6 +110,17 @@ class Grid
             console.log(`[G] dismissed session[${LOG_SESSION(session)}]...`);
         } else {
             console.log(ERROR(`[G] error: session[${LOG_SESSION(session)}] is not in the subscribers list!`));
+        }
+    }
+
+    save_session(session, docker_image_name) 
+    {
+        const job = session.running[0];
+        if(job) {
+            console.log(`[G] saving docker-image for session[${LOG_SESSION(session)}] as ${LOG_IMAGE(docker_image_name)}`);
+            job.save(docker_image_name);
+        } else {
+            console.log(ERROR(`[G] error: can not save session[${LOG_SESSION(session)}], no running job!`));
         }
     }
 

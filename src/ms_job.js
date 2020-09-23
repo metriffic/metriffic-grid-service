@@ -159,6 +159,35 @@ class Job
         await pull;
     }
 
+    async docker_image_push(docker_repo)
+    {
+        console.log(`[J] pushing image ${LOG_IMAGE(docker_repo)}`);
+        const job = this;
+        const docker = job.board.docker;
+        const image = await docker.getImage(docker_repo);
+
+        const push = new Promise(function(resolve, reject) {
+            const auth = {
+                username: config.DOCKER_REGISTRY_USERNAME,
+                password: config.DOCKER_REGISTRY_PASSWORD,
+                serveraddress: config.DOCKER_REGISTRY_HOST,
+            };
+            image.push(
+                {'authconfig': auth},
+                function (err, stream) {
+                    if (err) {
+                        console.log(ERROR(`[J] failed to start exec modem: ${err}`));
+                        return reject();
+                    }
+                    let message = '';
+                    stream.on('data', data => { message += data; console.log('MDATA', message.length); });
+                    stream.on('end', () => { console.log('MEND', message); resolve(message); });
+                    stream.on('error', err => { console.log('MERR', message); reject(err); });
+                });
+        }); 
+        await push;        
+    }
+
 
     async docker_volume_create()
     {
@@ -196,6 +225,15 @@ class Job
                 return;
             }
         })    
+    }
+
+    async docker_container_commit(docker_repo)
+    {
+        const job = this;
+        console.log(`[J] committing image for container from job[${LOG_JOB(job)}] as ${LOG_IMAGE(docker_repo)}`);
+        await job.container.commit({
+                    repo: docker_repo,
+                });            
     }
 
     async docker_container_run()
@@ -313,8 +351,10 @@ class Job
         job.start_timestamp = Date.now();
         job.state = JobState.running;
 
-        await job.docker_containers_cleanup();
-        
+        if(job.exclusive) {
+            await job.docker_containers_cleanup();
+        }
+
         console.log(`[J] container cleanup for board[${LOG_BOARD(board)}] is done, pulling the requested image [${this.docker_image()}]`);
         try {
             await job.docker_image_pull();
@@ -351,11 +391,30 @@ class Job
         }
     }
 
-    complete() {
+    async complete() {
         this.state = JobState.completed;
         this.stop_container();
     }
-    cancel() {
+
+    async save(docker_image_name) {
+        const job = this;
+        const docker_repo = job.params.docker_registry + '/' + docker_image_name;
+        try {
+            await job.docker_container_commit(docker_repo);
+        } catch(e) {
+            console.log(ERROR(`[J] error: failed to commit from container [${LOG_CONTAINER(job.container.id)}] as [${LOG_IMAGE(docker_image_name)}], ${e}`,));
+            return;
+        }
+                
+        try {
+            await job.docker_image_push(docker_repo);
+        } catch(e) {
+            console.log(ERROR(`[J] error: failed to push image [${LOG_IMAGE(docker_image_name)}]...`));
+            return;
+        }
+    }
+
+    async cancel() {
         this.state = JobState.canceled;
         this.stop_container();
     }

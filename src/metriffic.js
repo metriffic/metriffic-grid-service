@@ -31,28 +31,43 @@ class Metriffic
         // TBD
     }
 
-    on_session_added(data)
+    on_session_added(input_data)
     {        
-        const grid = this.grids[data.platform.id];
-        const command = JSON.parse(data.command);
-        const datasets = JSON.parse(data.datasets)
-        data.docker_image = data.dockerImage.name;
-        data.docker_options = data.dockerImage.options ? JSON.parse(data.dockerImage.options) : {};
-        data.docker_registry = config.DOCKER_REGISTRY_HOST;
-        data.user = data.user.username;
-        data.session_name = data.name;
-        data.command = command;
-        data.datasets = datasets,
-
+        const grid = this.grids[input_data.platform_id];
+        const command = JSON.parse(input_data.command);
+        const datasets = JSON.parse(input_data.datasets);
+        const data = {
+            id: input_data.session_id,
+            name: input_data.session_name,
+            type: input_data.session_type,
+            docker_image: input_data.docker_image,
+            docker_options: input_data.docker_options ? JSON.parse(input_data.docker_options) : {},
+            docker_registry: config.DOCKER_REGISTRY_HOST,
+            user: input_data.user,
+            command: command,
+            datasets: datasets,
+            max_jobs: input_data.max_jobs,
+        };
         grid.submit_session(data);
     }
 
     on_session_removed(data)
     {
-        const grid = this.grids[data.platform.id];
-        const session = grid.get_session(data.id);
+        const grid = this.grids[data.platform_id];
+        const session = grid.get_session(data.session_id);
         if(session) {
             grid.dismiss_session(session);
+        }
+    }
+
+    on_session_save(data)
+    {
+        const grid = this.grids[data.platform_id];
+        const session = grid.get_session(data.session_id);
+        
+        const docker_image = data.docker_image;        
+        if(session) {
+            grid.save_session(session, docker_image);
         }
     }
 
@@ -89,24 +104,28 @@ class Metriffic
         // subscribe to session updates
         const subscribe_sessions = gql`
         subscription subsSession { 
-            subsSession { mutation data {id, name, type, state, user{username}, platform{id}, dockerImage{name options} max_jobs, datasets, command }}
+            subsSession { mutation data }
         }`;
 
         metriffic_client.gql.subscribe({
             query: subscribe_sessions,
         }).subscribe({
             next(ret) {
-                const update = ret.data.subsSession;
+                const update = ret.data.subsSession
+                const update_data = JSON.parse(update.data);
                 if(update.mutation === "ADDED") {
-                    metriffic.on_session_added(update.data);
+                    metriffic.on_session_added(update_data);
                 } else
                 if(update.mutation === "UPDATED") {
-                    if(update.data.state === "CANCELED") {
-                        metriffic.on_session_removed(update.data);
+                    if(update_data.session_state === "CANCELED") {
+                        metriffic.on_session_removed(update_data);
                     }
                     // TBD: handle other state transitions...
+                } else 
+                if(update.mutation === "REQUESTED_SAVE") {
+                    metriffic.on_session_save(update_data);
                 } else {
-                    console.log(ERROR(`[M] error: received unknown board subscription data: ${update.data}`));
+                    console.log(ERROR(`[M] error: received unknown session subscription data: ${update}`));
                 }
             },
             error(err) {

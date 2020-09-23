@@ -20,7 +20,7 @@ function session_str(session)
     return (session.params.name + '#' + session.params.id).brightBlue;
 }
 
-function container_str(container_id) 
+function docker_str(container_id) 
 {
     return container_id.underline.bold;
 }
@@ -42,6 +42,7 @@ module.exports.LOG_JOB = job_str;
 module.exports.LOG_BOARD = board_str;
 module.exports.LOG_SESSION = session_str;
 module.exports.LOG_TIME = time_str;
-module.exports.LOG_CONTAINER = container_str;
+module.exports.LOG_CONTAINER = docker_str;
+module.exports.LOG_IMAGE = docker_str;
 module.exports.ERROR = error_str;
 

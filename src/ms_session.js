@@ -160,6 +160,7 @@ class Session
                         docker_image    : params.docker_image,
                         docker_options  : params.docker_options,
                         type            : JobType.batch,
+                        exclusive       : true,
                     };
                     // TBD: review the path
                     //bindings.push(`${path.resolve(ds)}:/input/${ds}`);
@@ -180,6 +181,7 @@ class Session
                     docker_image    : params.docker_image,
                     docker_options  : params.docker_options,
                     type            : JobType.interactive,
+                    exclusive       : true,
                 };
             jobs.push(new Job(jparams));         
         } else {
