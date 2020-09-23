@@ -4,11 +4,13 @@ const path = require('path');
 
 const { ssh_manager } = require('./ssh_manager');
 const { publish_to_user_stream } = require('./data_stream');
-
-const LOG_JOB = require('./logging').LOG_JOB
-const LOG_BOARD = require('./logging').LOG_BOARD
-const LOG_CONTAINER = require('./logging').LOG_CONTAINER
-const ERROR = require('./logging').ERROR
+const {
+    LOG_JOB,
+    LOG_BOARD,
+    LOG_CONTAINER,
+    LOG_IMAGE,
+    ERROR 
+ } = require('./logging')
 const config = require('./config')
 
 const JobType = {
@@ -178,6 +180,22 @@ class Job
                 return;
             }
         })    
+
+        const publicspace = this.params.publicspace;
+        await this.board.docker.createVolume({
+            Name: 'publicspace', 
+            Driver: 'local', 
+            DriverOpts: {
+                'type': 'nfs',
+                'device': ':' + publicspace,
+                'o': 'addr=' + nfs_host + ',ro',
+            }
+        }, (err, volume) => {
+            if(err) {
+                console.trace(err);
+                return;
+            }
+        })    
     }
 
     async docker_container_run()
@@ -194,7 +212,7 @@ class Job
 
         host_config.Binds = [
             userspace + ':/workspace', 
-            publicspace + ':/publicspace',
+            publicspace + ':/public',
         ];
         host_config.AutoRemove = true;
         // if this is an interactive session, prepare ssh-manager and set up docker port forwarding
@@ -213,7 +231,7 @@ class Job
                                             Tty: true,
                                             Volumes:{
                                                 '/workspace': {},
-                                                '/publicspace': {}
+                                                '/public': {}
                                             },
                                             ExposedPorts: exposed_ports,
                                             HostConfig: host_config,
