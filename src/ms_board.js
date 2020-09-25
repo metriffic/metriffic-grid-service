@@ -6,7 +6,6 @@ class Board
     constructor(params) 
     {
         this.platform = params.platform;
-        this.platform_docker = params.platform_docker;
         this.hostname = params.hostname;
         this.used = false;
         this.docker = new dockerode({protocol: 'http', host: params.hostname, port: 2375});
