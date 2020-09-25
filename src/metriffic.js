@@ -1,9 +1,12 @@
+const gql = require('graphql-tag');
+const ping = require('ping')
 const Board   = require('./ms_board').Board;
 const Grid = require('./ms_grid').Grid;
 const metriffic_client = require('./metriffic_gql').metriffic_client
-const gql = require('graphql-tag');
-const ERROR = require('./logging').ERROR
 const config = require('./config')
+const { ERROR } = require('./logging')
+const { publish_to_user_stream } = require('./data_stream');
+
 
 class Metriffic 
 {       
@@ -68,6 +71,83 @@ class Metriffic
         const docker_image = data.docker_image;        
         if(session) {
             grid.save_session(session, docker_image);
+        }
+    }
+
+    collect_platform_diagnostics()
+    {
+        const platform_data = [];
+        const promises = [];
+        for(let g in this.grids) {
+            const grid = this.grids[g];
+            const one_platform = {
+                name: grid.name,
+                boards: [],
+            };
+            grid.boards.forEach(async (board) => {
+
+                promises.push(new Promise((resolve, reject) => {
+                    ping.promise.probe(board.hostname).then(function (res) {
+                        one_platform.boards.push({
+                            hostname: board.hostname,
+                            used: board.used,
+                            alive: res.alive,
+                            ping: res.avg,
+                        });
+                        resolve();
+                    });
+                }));
+
+            });
+            platform_data.push(one_platform);
+        };
+        return Promise.all(promises).then(() => {
+            return platform_data;
+        });
+    }
+
+    collect_session_diagnostics()
+    {
+        const session_data = [];
+        for(let g in this.grids) {
+            const grid = this.grids[g];
+            const one_platform = {
+                name: grid.name,
+                sessions: [],
+                running_jobs: [],
+            };
+            grid.running_jobs.forEach((rj) => {
+                one_platform.running_jobs.push({
+                    session: rj.params.name,
+                    name: rj.params.dataset + '#' + rj.params.id,
+                    type: rj.params.type,
+                    start: new Date(rj.start_timestamp).toLocaleString(),
+                    container: rj.container.id.substring(0,6),  
+                    board: rj.board.hostname,                        
+                })
+            })
+            grid.subscribers.forEach((ss) => {
+                one_platform.sessions.push({
+                    name: ss.name,
+                    total_jobs: ss.total_jobs,
+                    remaining_jobs: ss.submitted.length,
+                    running_jobs: ss.running.length,                    
+                });
+            })
+            session_data.push(one_platform);
+        };
+        return session_data;
+    }
+
+    async on_admin_command(username, command, data)
+    {        
+        if(command == 'DIAGNOSTICS') {
+            data = {};
+            const platform_data = await this.collect_platform_diagnostics();
+            const session_data = this.collect_session_diagnostics();
+            data['platforms'] = platform_data;
+            data['sessions'] = session_data;
+            publish_to_user_stream(username, data);
         }
     }
 
@@ -144,11 +224,13 @@ class Metriffic
           }).subscribe({
               next(ret) {
                   const update = ret.data.subsAdmin
+                  const update_username = update.username;
                   const update_command = update.command;
                   const update_data = update.data; //JSON.parse(update.data);
-                  console.log('SUBS-ADMIN', update_command, update_data)
+                  console.log('SUBS-ADMIN', update_username, update_command, update_data)
                   if(update_command === "DIAGNOSTICS") {
-                      //metriffic.on_admin_command(update_command, update_data);
+                      metriffic.on_admin_command(update_username, update_command, update_data);
+                      
                   } else {
                       console.log(ERROR(`[M] error: received unknown admin command: ${update}`));
                   }
