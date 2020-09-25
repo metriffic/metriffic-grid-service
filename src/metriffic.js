@@ -129,9 +129,34 @@ class Metriffic
                 }
             },
             error(err) {
-                console.log('ERROR: failes to subscribe', err);
+                console.log('ERROR: failed to subscribe', err);
             }
         });
+
+          // subscribe to session updates
+          const subscribe_admin = gql`
+          subscription subsAdmin { 
+              subsAdmin { username command data }
+          }`;
+  
+          metriffic_client.gql.subscribe({
+              query: subscribe_admin,
+          }).subscribe({
+              next(ret) {
+                  const update = ret.data.subsAdmin
+                  const update_command = update.command;
+                  const update_data = update.data; //JSON.parse(update.data);
+                  console.log('SUBS-ADMIN', update_command, update_data)
+                  if(update_command === "DIAGNOSTICS") {
+                      //metriffic.on_admin_command(update_command, update_data);
+                  } else {
+                      console.log(ERROR(`[M] error: received unknown admin command: ${update}`));
+                  }
+              },
+              error(err) {
+                  console.log('ERROR: failed to subscribe', err);
+              }
+          });
     }
 
     async start_platform_grids()
