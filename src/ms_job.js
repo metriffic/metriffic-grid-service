@@ -255,7 +255,7 @@ class Job
         host_config.AutoRemove = true;
         // if this is an interactive session, prepare ssh-manager and set up docker port forwarding
         if(job.is_interactive()) {
-            ssh_manager.setup_session(job);
+            await ssh_manager.setup_session(job);
             job.params.command = ["/bin/bash", "-c", `echo -e \"${job.ssh_user.password}\\n${job.ssh_user.password}\" | passwd root; service ssh start`],
 
             exposed_ports = { "22/tcp": {}};
