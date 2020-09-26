@@ -46,7 +46,7 @@ class Metriffic
             docker_image: input_data.docker_image,
             docker_options: input_data.docker_options ? JSON.parse(input_data.docker_options) : {},
             docker_registry: config.DOCKER_REGISTRY_HOST,
-            user: input_data.user,
+            username: input_data.username,
             command: command,
             datasets: datasets,
             max_jobs: input_data.max_jobs,
@@ -122,13 +122,13 @@ class Metriffic
                     name: rj.params.dataset + '#' + rj.params.id,
                     type: rj.params.type,
                     start: new Date(rj.start_timestamp).toLocaleString(),
-                    container: rj.container.id.substring(0,6),  
+                    container: rj.container.id.substring(0,10),  
                     board: rj.board.hostname,                        
                 })
             })
             grid.subscribers.forEach((ss) => {
                 one_platform.sessions.push({
-                    name: ss.name,
+                    name: ss.params.name,
                     total_jobs: ss.total_jobs,
                     remaining_jobs: ss.submitted.length,
                     running_jobs: ss.running.length,                    
@@ -139,15 +139,15 @@ class Metriffic
         return session_data;
     }
 
-    async on_admin_command(username, command, data)
+    async on_admin_command(update)
     {        
-        if(command == 'DIAGNOSTICS') {
-            data = {};
+        if(update.command == 'DIAGNOSTICS') {
+            update.data = {};
             const platform_data = await this.collect_platform_diagnostics();
             const session_data = this.collect_session_diagnostics();
-            data['platforms'] = platform_data;
-            data['sessions'] = session_data;
-            publish_to_user_stream(username, data);
+            update.data['platforms'] = platform_data;
+            update.data['sessions'] = session_data;
+            publish_to_user_stream(update.username, update.data);
         }
     }
 
@@ -224,12 +224,8 @@ class Metriffic
           }).subscribe({
               next(ret) {
                   const update = ret.data.subsAdmin
-                  const update_username = update.username;
-                  const update_command = update.command;
-                  const update_data = update.data; //JSON.parse(update.data);
-                  console.log('SUBS-ADMIN', update_username, update_command, update_data)
-                  if(update_command === "DIAGNOSTICS") {
-                      metriffic.on_admin_command(update_username, update_command, update_data);
+                  if(update.command === "DIAGNOSTICS") {
+                      metriffic.on_admin_command(update);
                       
                   } else {
                       console.log(ERROR(`[M] error: received unknown admin command: ${update}`));

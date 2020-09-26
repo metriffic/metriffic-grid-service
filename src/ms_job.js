@@ -150,10 +150,26 @@ class Job
                         console.log(ERROR(`[J] failed to start exec modem: ${err}`));
                         return reject();
                     }
-                    let message = '';
-                    stream.on('data', data => { message += data });
-                    stream.on('end', () => resolve(message));
-                    stream.on('error', err => reject(err));
+                    stream.on('data', data => { 
+                        //console.log('PULL', JSON.parse(data.toString('utf8')))
+                        // send pull updates only for interactive runs...
+                        if(job.params.type == JobType.interactive) {
+                            publish_to_user_stream(job.params.username, {pull_type: 'data', msg: data.toString('utf8')});
+                        }
+                    });
+                    stream.on('end', () => { 
+                        if(job.params.type == JobType.interactive) {
+                            publish_to_user_stream(job.params.username, {pull_type: 'end'});
+                        }
+                        resolve(); 
+                    });
+                    stream.on('error', err => { 
+                        console.log(ERROR(`[J] failed to push the image ${err}`)); 
+                        if(job.params.type == JobType.interactive) {
+                            publish_to_user_stream(job.params.username, {pull_type: 'error', msg: err});
+                        }
+                        reject(err); 
+                    });
                 });
         }); 
         await pull;
@@ -179,10 +195,18 @@ class Job
                         console.log(ERROR(`[J] failed to start exec modem: ${err}`));
                         return reject();
                     }
-                    let message = '';
-                    stream.on('data', data => { message += data; console.log('MDATA', message.length); });
-                    stream.on('end', () => { console.log('MEND', message); resolve(message); });
-                    stream.on('error', err => { console.log('MERR', message); reject(err); });
+                    stream.on('data', data => { 
+                        publish_to_user_stream(job.params.username, {push_type: 'data', msg: data.toString('utf8')});
+                    });
+                    stream.on('end', () => { 
+                        publish_to_user_stream(job.params.username, {push_type: 'end'});
+                        resolve(); 
+                    });
+                    stream.on('error', err => { 
+                        console.log(ERROR(`[J] failed to push the image ${err}`)); 
+                        publish_to_user_stream(job.params.username, {push_type: 'error', msg: err});
+                        reject(err); 
+                    });
                 });
         }); 
         await push;        
@@ -193,7 +217,7 @@ class Job
     {
         const nfs_host = config.NFS_HOST;
 
-        const username = this.params.user;
+        const username = this.params.username;
         const userspace = this.params.userspace;
         await this.board.docker.createVolume({
             Name: 'workspace.' + username, 
@@ -242,7 +266,7 @@ class Job
         const board = job.board;
         const job_id = this.params.uid;
         const session_name = this.params.session_name;
-        const userspace =  'workspace.' + this.params.user;
+        const userspace =  'workspace.' + this.params.username;
         const publicspace = 'publicspace';
         var exposed_ports = {};
         const host_config = this.params.docker_options && this.params.docker_options.HostConfig ? 
@@ -293,7 +317,7 @@ class Job
                 const ssh_user = job.ssh_user;
                 //ssh_user.container = job.container.id.slice(0,12);
                 ssh_manager.start_session(job);
-                publish_to_user_stream(job.params.user, {
+                publish_to_user_stream(job.params.username, {
                                         port: ssh_user.docker_port,
                                         host: ssh_user.docker_host,
                                         username: ssh_user.username,

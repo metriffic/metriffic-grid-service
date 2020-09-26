@@ -149,12 +149,12 @@ class Session
             params.datasets.forEach( ds => {
                     const jparams = {
                         session_name    : params.name,
-                        user            : params.user,
+                        username        : params.username,
                         dataset         : ds,
                         command         : params.command,
                         complete_cb     : params.job_complete_cb,
                         out_file        : path.join(output_folder, 'job.'+ds+'.log'),
-                        userspace       : path.join(config.USERSPACE_NFS_DIR_ROOT, params.user),   
+                        userspace       : path.join(config.USERSPACE_NFS_DIR_ROOT, params.username),   
                         publicspace     : config.PUBLICSPACE_NFS_DIR_ROOT,
                         docker_registry : params.docker_registry,
                         docker_image    : params.docker_image,
@@ -170,12 +170,12 @@ class Session
         if(this.is_interactive()) {
                 const jparams = {
                     session_name    : params.name,
-                    user            : params.user,
+                    username        : params.username,
                     dataset         : 'interactive',
                     command         : [],
                     complete_cb     : params.job_complete_cb,
                     out_file        : path.join(output_folder, 'job.interactive.log'),
-                    userspace       : path.join(config.USERSPACE_NFS_DIR_ROOT, params.user),
+                    userspace       : path.join(config.USERSPACE_NFS_DIR_ROOT, params.username),
                     publicspace     : config.PUBLICSPACE_NFS_DIR_ROOT,
                     docker_registry : params.docker_registry,
                     docker_image    : params.docker_image,
@@ -234,7 +234,7 @@ class Session
 
     create_session_output_folder() 
     {
-        const folder = path.join(config.USERSPACE_DIR_ROOT, this.params.user, 'sessions', this.session_id());
+        const folder = path.join(config.USERSPACE_DIR_ROOT, this.params.username, 'sessions', this.session_id());
         const output_folder = path.join(folder, 'output');
         fs.mkdirSync(folder, { recursive: true });
         fs.mkdirSync(output_folder, { recursive: true });

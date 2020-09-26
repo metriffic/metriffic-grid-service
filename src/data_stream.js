@@ -3,9 +3,6 @@ const gql = require('graphql-tag');
 
 module.exports.publish_to_user_stream = (user, data) => {
 
-    console.log('PUBLISHING', user, data);
-
-
     const mutation_publish_data = gql`
     mutation ms($username: String!, $data: String!) { 
         publishData(username: $username, data: $data) 
