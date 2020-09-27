@@ -149,6 +149,7 @@ class Session
             params.datasets.forEach( ds => {
                     const jparams = {
                         session_name    : params.name,
+                        platform_id     : params.platform_id,
                         username        : params.username,
                         dataset         : ds,
                         command         : params.command,
@@ -170,6 +171,7 @@ class Session
         if(this.is_interactive()) {
                 const jparams = {
                     session_name    : params.name,
+                    platform_id     : params.platform_id,
                     username        : params.username,
                     dataset         : 'interactive',
                     command         : [],

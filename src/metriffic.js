@@ -43,6 +43,7 @@ class Metriffic
             id: input_data.session_id,
             name: input_data.session_name,
             type: input_data.session_type,
+            platform_id: input_data.platform_id,
             docker_image: input_data.docker_image,
             docker_options: input_data.docker_options ? JSON.parse(input_data.docker_options) : {},
             docker_registry: config.DOCKER_REGISTRY_HOST,
