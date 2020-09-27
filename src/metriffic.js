@@ -119,7 +119,7 @@ class Metriffic
             };
             grid.running_jobs.forEach((rj) => {
                 one_platform.running_jobs.push({
-                    session: rj.params.name,
+                    session: rj.params.session_name,
                     name: rj.params.dataset + '#' + rj.params.id,
                     type: rj.params.type,
                     start: new Date(rj.start_timestamp).toLocaleString(),
@@ -130,6 +130,7 @@ class Metriffic
             grid.subscribers.forEach((ss) => {
                 one_platform.sessions.push({
                     name: ss.params.name,
+                    user: ss.params.username,
                     total_jobs: ss.total_jobs,
                     remaining_jobs: ss.submitted.length,
                     running_jobs: ss.running.length,                    
