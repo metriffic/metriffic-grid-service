@@ -294,7 +294,7 @@ class Job
         }
         const container = await board.docker.createContainer({
                                             Image: job.docker_image(),
-                                            name: `session-${session_name}.job-${job_id}`,
+                                            name: `session-${session_name}.job-${job.params.id}`,
                                             Cmd: ['/bin/bash'],
                                             Tty: true,
                                             Volumes:{
@@ -388,7 +388,7 @@ class Job
         job.start_timestamp = Date.now();
         job.state = JobState.running;
 
-        if(job.exclusive) {
+        if(job.params.exclusive) {
             await job.docker_containers_cleanup();
         }
 
