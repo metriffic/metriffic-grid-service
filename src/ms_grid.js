@@ -62,7 +62,7 @@ class Grid
     register_board(brd) 
     {        
         this.boards.push(brd);
-        console.log(`[G] registered board[${LOG_BOARD(brd)}], ` +
+        console.log(`[G] registered board[${LOG_BOARD(brd)}, ${brd.ip}], ` +
                     `total ${this.boards.length} boards.`);
     }
     unregister_board(brd) 

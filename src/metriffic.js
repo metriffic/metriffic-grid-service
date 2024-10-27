@@ -159,7 +159,7 @@ class Metriffic
 
         const subscribe_boards = gql`
         subscription subsBoard { 
-            subsBoard { mutation data {hostname platform {id name}}}
+            subsBoard { mutation data {hostname platform ip {id name}}}
         }`;
             
         // subscribe to board updates
@@ -260,7 +260,7 @@ class Metriffic
             const all_boards_gql = gql`
                     query allBoards($platformName: String) {
                         allBoards (platformName: $platformName) 
-                        {id hostname description}
+                        {id hostname ip description}
                     }`;
             metriffic_client.gql.query({
                             query: all_boards_gql,
@@ -270,7 +270,8 @@ class Metriffic
                 all_boards.data.allBoards.forEach(board => {
                         metriffic.grids[platform.id].register_board(new Board({
                                 platform: platform.name, 
-                                hostname: board.hostname
+                                hostname: board.hostname,
+                                ip: board.ip
                             }));
                     });    
                 metriffic.grids[platform.id].start();

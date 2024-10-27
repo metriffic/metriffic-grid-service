@@ -7,8 +7,9 @@ class Board
     {
         this.platform = params.platform;
         this.hostname = params.hostname;
+        this.ip = params.ip;
         this.used = false;
-        this.docker = new dockerode({protocol: 'http', host: params.hostname, port: 2375});
+        this.docker = new dockerode({protocol: 'http', host: params.ip, port: 2375});
     }
     
     use() 

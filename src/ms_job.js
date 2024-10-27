@@ -225,13 +225,14 @@ class Job
 
         const username = this.params.username;
         const userspace = this.params.userspace;
+
         await this.board.docker.createVolume({
             Name: 'workspace.' + username, 
             Driver: 'local', 
             DriverOpts: {
                 'type': 'nfs',
                 'device': ':' + userspace,
-                'o': 'addr=' + nfs_host + ',rw',
+                'o': 'addr=' + nfs_host + ',rw,nfsvers=4',
             }
         }, (err, volume) => {
             if(err) {
@@ -247,7 +248,7 @@ class Job
             DriverOpts: {
                 'type': 'nfs',
                 'device': ':' + publicspace,
-                'o': 'addr=' + nfs_host + ',ro',
+                'o': 'addr=' + nfs_host + ',ro,nfsvers=4',
             }
         }, (err, volume) => {
             if(err) {
