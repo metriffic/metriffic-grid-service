@@ -284,11 +284,11 @@ class Job
             publicspace + ':/public',
         ];
         host_config.AutoRemove = true;
+
         // if this is an interactive session, prepare ssh-manager and set up docker port forwarding
         if(job.is_interactive()) {
             await ssh_manager.setup_session(job);
-            job.params.command = ["/bin/bash", "-c", `echo -e \"${job.ssh_user.password}\\n${job.ssh_user.password}\" | passwd root; service ssh start`],
-
+            job.params.command = ["/bin/bash", "-c", `echo "${job.params.user_key}" >> ~/.ssh/authorized_keys; service ssh start`];
             exposed_ports = { "22/tcp": {}};
             host_config.PortBindings = { '22/tcp': [{'HostPort': job.ssh_user.docker_port.toString(), 
                                                     'HostIp': job.ssh_user.docker_host}]};
@@ -333,8 +333,6 @@ class Job
                                         data: {
                                             port: ssh_user.docker_port,
                                             host: ssh_user.docker_host,
-                                            username: ssh_user.username,
-                                            password: ssh_user.password
                                         },
                                     });
             }

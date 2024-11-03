@@ -48,6 +48,7 @@ class Metriffic
             docker_options: input_data.docker_options ? JSON.parse(input_data.docker_options) : {},
             docker_registry: config.DOCKER_REGISTRY_HOST,
             username: input_data.username,
+            user_key: input_data.user_key,
             command: command,
             datasets: datasets,
             max_jobs: input_data.max_jobs,
@@ -159,7 +160,7 @@ class Metriffic
 
         const subscribe_boards = gql`
         subscription subsBoard { 
-            subsBoard { mutation data {hostname platform ip {id name}}}
+            subsBoard { mutation data {hostname ip platform {id name}}}
         }`;
             
         // subscribe to board updates

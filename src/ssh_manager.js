@@ -2,7 +2,6 @@ const { ShellServer, Authenticators } = require('ssh2-shell-server');
 const { Client } = require('ssh2');
 const fs = require('fs');
 const crypto = require('crypto');
-const password_generator = require('generate-password');
 const inspect = require('util').inspect;
 const detect = require('detect-port');
 
@@ -30,11 +29,6 @@ class SSHManager
                     docker_port: available_port,
                     docker_host: job.board.hostname,
                     username: 'root',
-                    //port: new_port,
-                    password: password_generator.generate({
-                                                    length: 16,
-                                                    numbers: true
-                                                })
                 };
             }).catch(err => {
                 console.log(ERROR(`[SSHM] error reserving port: ${err}`));
