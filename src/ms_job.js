@@ -10,7 +10,7 @@ const {
     LOG_BOARD,
     LOG_CONTAINER,
     LOG_IMAGE,
-    ERROR 
+    ERROR
  } = require('./logging')
 const config = require('./config')
 const metriffic_client = require('./metriffic_gql').metriffic_client
@@ -28,9 +28,9 @@ const JobState = {
 }
 
 
-class Job 
+class Job
 {
-    constructor(params) 
+    constructor(params)
     {
         this.params = params;
         this.submit_timestamp = 0;
@@ -42,12 +42,12 @@ class Job
     }
 
 
-    is_batch() 
+    is_batch()
     {
         return this.params.type === JobType.batch;
     }
-    
-    is_interactive() 
+
+    is_interactive()
     {
         return this.params.type === JobType.interactive;
     }
@@ -107,7 +107,7 @@ class Job
         const promises = containers.map(function(cntr) {
                     console.log(`[J] removing container[${LOG_CONTAINER(cntr.Id)}]....`);
                     const container = board.docker.getContainer(cntr.Id);
-                    return container.remove({ 
+                    return container.remove({
                         force: true,  // force removal
                         v: true       // remove associated volumes as well
                     }).then(function(data){
@@ -133,7 +133,7 @@ class Job
         await Promise.all(promises);
     }
 
-    async docker_image_pull() 
+    async docker_image_pull()
     {
         const job = this;
         const board = this.board;
@@ -153,28 +153,28 @@ class Job
                         console.log(ERROR(`[J] failed to start exec modem: ${err}`));
                         return reject();
                     }
-                    stream.on('data', data => { 
+                    stream.on('data', data => {
                         //console.log('PULL', JSON.parse(data.toString('utf8')))
                         // send pull updates only for interactive runs...
                         if(job.params.type == JobType.interactive) {
                             publish_to_user_stream(job.params.username, {type: 'pull_data', data: data.toString('utf8')});
                         }
                     });
-                    stream.on('end', () => { 
+                    stream.on('end', () => {
                         if(job.params.type == JobType.interactive) {
                             publish_to_user_stream(job.params.username, {type: 'pull_success'});
                         }
-                        resolve(); 
+                        resolve();
                     });
-                    stream.on('error', err => { 
-                        console.log(ERROR(`[J] failed to push the image ${err}`)); 
+                    stream.on('error', err => {
+                        console.log(ERROR(`[J] failed to push the image ${err}`));
                         if(job.params.type == JobType.interactive) {
                             publish_to_user_stream(job.params.username, {type: 'pull_error', error: err});
                         }
-                        reject(err); 
+                        reject(err);
                     });
                 });
-        }); 
+        });
         await pull;
     }
 
@@ -198,24 +198,24 @@ class Job
                         console.log(ERROR(`[J] failed to start exec modem: ${err}`));
                         return reject();
                     }
-                    stream.on('data', data => { 
+                    stream.on('data', data => {
                         publish_to_user_stream(job.params.username, {type: 'push_data', data: data.toString('utf8')});
                     });
-                    stream.on('end', () => { 
+                    stream.on('end', () => {
                         publish_to_user_stream(job.params.username, {type: 'push_success'});
-                        resolve(); 
+                        resolve();
                     });
-                    stream.on('error', err => { 
-                        console.log(ERROR(`[J] failed to push the image ${err}`)); 
+                    stream.on('error', err => {
+                        console.log(ERROR(`[J] failed to push the image ${err}`));
                         publish_to_user_stream(job.params.username, {
                             type: 'push_error',
                             error: err,
-                        });            
-                        reject(err); 
+                        });
+                        reject(err);
                     });
                 });
-        }); 
-        await push;        
+        });
+        await push;
     }
 
 
@@ -227,8 +227,8 @@ class Job
         const userspace = this.params.userspace;
 
         await this.board.docker.createVolume({
-            Name: 'workspace.' + username, 
-            Driver: 'local', 
+            Name: 'workspace.' + username,
+            Driver: 'local',
             DriverOpts: {
                 'type': 'nfs',
                 'device': ':' + userspace,
@@ -239,12 +239,12 @@ class Job
                 console.trace(err);
                 return;
             }
-        })    
+        })
 
         const publicspace = this.params.publicspace;
         await this.board.docker.createVolume({
-            Name: 'publicspace', 
-            Driver: 'local', 
+            Name: 'publicspace',
+            Driver: 'local',
             DriverOpts: {
                 'type': 'nfs',
                 'device': ':' + publicspace,
@@ -255,7 +255,7 @@ class Job
                 console.trace(err);
                 return;
             }
-        })    
+        })
     }
 
     async docker_container_commit(docker_repo)
@@ -264,7 +264,7 @@ class Job
         console.log(`[J] committing image for container from job[${LOG_JOB(job)}] as ${LOG_IMAGE(docker_repo)}`);
         await job.container.commit({
                     repo: docker_repo,
-                });            
+                });
     }
 
     async docker_container_run()
@@ -276,11 +276,11 @@ class Job
         const userspace =  'workspace.' + this.params.username;
         const publicspace = 'publicspace';
         var exposed_ports = {};
-        const host_config = this.params.docker_options && this.params.docker_options.HostConfig ? 
+        const host_config = this.params.docker_options && this.params.docker_options.HostConfig ?
                                 this.params.docker_options.HostConfig : {};
 
         host_config.Binds = [
-            userspace + ':/workspace', 
+            userspace + ':/workspace',
             publicspace + ':/public',
         ];
         host_config.AutoRemove = true;
@@ -290,7 +290,7 @@ class Job
             await ssh_manager.setup_session(job);
             job.params.command = ["/bin/bash", "-c", `echo "${job.params.user_key}" >> ~/.ssh/authorized_keys; service ssh start`];
             exposed_ports = { "22/tcp": {}};
-            host_config.PortBindings = { '22/tcp': [{'HostPort': job.ssh_user.docker_port.toString(), 
+            host_config.PortBindings = { '22/tcp': [{'HostPort': job.ssh_user.docker_port.toString(),
                                                     'HostIp': job.ssh_user.docker_host}]};
         }
         const container = await board.docker.createContainer({
@@ -311,7 +311,7 @@ class Job
         await job.container.start();
     }
 
-    docker_exec_stream_handler(err, data) 
+    docker_exec_stream_handler(err, data)
     {
         const job = this;
         if (err) {
@@ -320,7 +320,7 @@ class Job
                                     type: 'exec_error',
                                     error: err,
                                 });
-        } else 
+        } else
         if (!data.Running) {
             console.log(`[J] docker exec for job[${LOG_JOB(job)}] completed with code ${data.ExitCode}`);
             // if this is an interactive session: set up update the data and publish it to the user...
@@ -337,13 +337,13 @@ class Job
                                         data: ssh_data,
                                     });
                 const mutation_running_session = gql`
-                mutation running_session($name: String!, $command: String!) { 
-                    sessionUpdateCommand(name: $name, command: $command) 
-                    { id } 
+                mutation running_session($name: String!, $command: String!) {
+                    sessionUpdateCommand(name: $name, command: $command)
+                    { id }
                 }`;
                 metriffic_client.gql.mutate({
                     mutation: mutation_running_session,
-                    variables: { name: session.params.name, 
+                    variables: { name: job.params.session_name,
                                  command: JSON.stringify(ssh_data) }
                 }).then(function(ret) {
                     // nothing
@@ -351,7 +351,7 @@ class Job
                     console.log(ERROR(`[S] failed to update BE with 'running session' request [${LOG_SESSION(session)}]: ${err}.`));
                 });
             }
-        }   
+        }
     }
 
     async docker_container_exec()
@@ -377,10 +377,10 @@ class Job
 
                     let message = '';
                     stream.on('data', data => {  message += data});
-                    stream.on('end', function () { 
+                    stream.on('end', function () {
                         console.log(`[J] stream from job[${LOG_JOB(job)}] ended.`);
                         exec.inspect((err, data) => job.docker_exec_stream_handler(err, data));
-                        resolve(); 
+                        resolve();
                     });
                 }).finally(function(data) {
                     exec_resolve();
@@ -395,7 +395,7 @@ class Job
         };
     }
 
-    async start(board) 
+    async start(board)
     {
         const job = this;
         job.board = board;
@@ -488,12 +488,12 @@ class Job
             });
             return;
         }
-                
+
         try {
             await job.docker_image_push(docker_repo);
             await job.register_new_docker_image(job.params.platform_id, docker_image_name,
                                                 job.params.docker_options, docker_image_description);
-        } 
+        }
         catch(err) {
             console.log(ERROR(`[J] error: failed to save image [${LOG_IMAGE(docker_image_name)}]: ${err}...`));
             publish_to_user_stream(job.params.username, {
@@ -510,16 +510,16 @@ class Job
         docker_descritions = "blabla";
         const job = this;
         const docker_image_create = gql`
-        mutation dockerImageCreate ($platformId: Int!, $name: String!, 
-                                    $options: String, $description: String) { 
-            dockerImageCreate(platformId: $platformId, name: $name, 
-                              options: $options, description: $description) 
+        mutation dockerImageCreate ($platformId: Int!, $name: String!,
+                                    $options: String, $description: String) {
+            dockerImageCreate(platformId: $platformId, name: $name,
+                              options: $options, description: $description)
             { id }
         }`;
-            
+
         metriffic_client.gql.mutate({
             mutation: docker_image_create,
-            variables: { platformId: docker_platform_id, 
+            variables: { platformId: docker_platform_id,
                          name: docker_image,
                          options: JSON.stringify(docker_options),
                          description: docker_descritions }
