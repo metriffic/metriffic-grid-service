@@ -160,7 +160,6 @@ class Grid
                 num_skipped++;
             }
             grid.subscribers.push(grid.subscribers.shift());
-
         }
     }
 

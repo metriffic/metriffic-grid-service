@@ -56,7 +56,7 @@ class Session
             if(session.total_jobs == session.submitted.length) { 
                 const mutation_running_session = gql`
                 mutation running_session($name: String!, $state: String!) { 
-                    sessionUpdate(name: $name, state: $state) 
+                    sessionUpdateState(name: $name, state: $state) 
                     { id } 
                 }`;
                 metriffic_client.gql.mutate({
@@ -222,7 +222,7 @@ class Session
 
         const mutation_stop_session = gql`
         mutation stop_session($name: String!, $state: String!) { 
-            sessionUpdate(name: $name, state: $state) 
+            sessionUpdateState(name: $name, state: $state) 
             { id } 
         }`;
         metriffic_client.gql.mutate({

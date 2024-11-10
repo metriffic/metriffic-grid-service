@@ -315,26 +315,41 @@ class Job
     {
         const job = this;
         if (err) {
-            console.log(`[J] docker execution for job[${LOG_JOB(job)}] exited with code ${data.ExitCode}, error: ${err}`);
+            console.log(`[J] docker exec for job[${LOG_JOB(job)}] exited with code ${data.ExitCode}, error: ${err}`);
             publish_to_user_stream(job.params.username, {
                                     type: 'exec_error',
                                     error: err,
                                 });
         } else 
         if (!data.Running) {
-            console.log(`[J] docker execution for job[${LOG_JOB(job)}] exited with code ${data.ExitCode}`);
-                    // if this is an interactive session: set up update the data and publish it to the user...
+            console.log(`[J] docker exec for job[${LOG_JOB(job)}] completed with code ${data.ExitCode}`);
+            // if this is an interactive session: set up update the data and publish it to the user...
             if(job.is_interactive() && job.ssh_user) {
                 const ssh_user = job.ssh_user;
                 //ssh_user.container = job.container.id.slice(0,12);
                 ssh_manager.start_session(job);
+                const ssh_data = {
+                    port: ssh_user.docker_port,
+                    host: ssh_user.docker_host,
+                };
                 publish_to_user_stream(job.params.username, {
                                         type: 'exec_success',
-                                        data: {
-                                            port: ssh_user.docker_port,
-                                            host: ssh_user.docker_host,
-                                        },
+                                        data: ssh_data,
                                     });
+                const mutation_running_session = gql`
+                mutation running_session($name: String!, $command: String!) { 
+                    sessionUpdateCommand(name: $name, command: $command) 
+                    { id } 
+                }`;
+                metriffic_client.gql.mutate({
+                    mutation: mutation_running_session,
+                    variables: { name: session.params.name, 
+                                 command: JSON.stringify(ssh_data) }
+                }).then(function(ret) {
+                    // nothing
+                }).catch(function(err){
+                    console.log(ERROR(`[S] failed to update BE with 'running session' request [${LOG_SESSION(session)}]: ${err}.`));
+                });
             }
         }   
     }
@@ -417,7 +432,7 @@ class Job
             return;
         };
 
-        console.log(`[J] userspace is successfully mount for [${LOG_BOARD(board)}], running...`);
+        console.log(`[J] volumes are successfully mount to [${LOG_BOARD(board)}], running...`);
         try {
             await job.docker_container_run();
         } catch(err) {
