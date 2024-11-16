@@ -5,29 +5,29 @@ const {
     LOG_BOARD,
     LOG_SESSION,
     LOG_IMAGE,
-    ERROR 
+    ERROR
  } = require('./logging')
 
-class Grid 
+class Grid
 {
-    constructor(params) 
+    constructor(params)
     {
         this.name = params.name;
         this.id = params.id;
-        
+
         this.boards = [];
 
         this.subscribers = [];
         this.running_jobs = [];
-        
+
     }
 
-    job_complete_cb(grid, job) 
+    job_complete_cb(grid, job)
     {
         grid.on_job_complete(job);
     }
-    
-    select_free_board() 
+
+    select_free_board()
     {
         for(const bi in this.boards) {
             const brd = this.boards[bi];
@@ -39,12 +39,12 @@ class Grid
         return null;
     }
 
-    start() 
+    start()
     {
         console.log(`[G] starting grid with following parameters ${this.name}`);
     }
 
-    stop() 
+    stop()
     {
         console.log('[G] stoping grid');
         // stop all running jobs
@@ -59,13 +59,13 @@ class Grid
         this.subscribers = [];
     }
 
-    register_board(brd) 
-    {        
+    register_board(brd)
+    {
         this.boards.push(brd);
         console.log(`[G] registered board[${LOG_BOARD(brd)}, ${brd.ip}], ` +
                     `total ${this.boards.length} boards.`);
     }
-    unregister_board(brd) 
+    unregister_board(brd)
     {
         const updated_boards = this.boards.filter(b => b.hostname != brd.hostname);
         if(updated_boards.length < this.boards.length) {
@@ -76,13 +76,13 @@ class Grid
         }
         this.boards = updated_boards;
     }
-    get_session(id) 
+    get_session(id)
     {
-        return this.subscribers.find(session => 
+        return this.subscribers.find(session =>
                                 (session.params.id == id));
     }
 
-    submit_session(session_params) 
+    async submit_session(session_params)
     {
         session_params.job_complete_cb = (job) => this.job_complete_cb(this, job);
 
@@ -91,18 +91,15 @@ class Grid
         this.subscribers.push(session);
         console.log(`[G] subscribed session[${LOG_SESSION(session)}], ` +
                     `total ${this.subscribers.length} subscribers.`);
-        
-        session.start()
-        .then(() => {
-            this.schedule();
-        });
 
+        await session.start()
+        await this.schedule();
     }
 
-    dismiss_session(session) 
+    async dismiss_session(session)
     {
         // stop the session (it's container, etc)
-        session.stop();
+        await session.stop();
         // remove it from the list of subscribers...
         const session_index = this.subscribers.indexOf(session);
         if (session_index > -1) {
@@ -113,7 +110,7 @@ class Grid
         }
     }
 
-    save_session(session, docker_image_name) 
+    save_session(session, docker_image_name)
     {
         const job = session.running[0];
         if(job) {
@@ -124,7 +121,7 @@ class Grid
         }
     }
 
-    schedule() 
+    async schedule()
     {
         const grid = this;
         console.log(`[G] scheduling... boards: ${grid.boards.length}, `,
@@ -141,14 +138,14 @@ class Grid
               num_skipped < grid.subscribers.length ) {
 
             const session = grid.subscribers[0];
-            
+
             if(grid.subscribers[0].is_done()) {
-                this.dismiss_session(session);
+                await this.dismiss_session(session);
                 continue;
             }
 
-            const job = session.accept_next();
-            
+            const job = await session.accept_next();
+
             // TBD: update the state of the session here!
 
             if(job) {
@@ -163,13 +160,13 @@ class Grid
         }
     }
 
-    on_job_complete(job) 
-    { 
+    async on_job_complete(job)
+    {
         job.complete_timestamp = Date.now();
         job.session.on_complete(job);
 
         console.log('[G] processing job complete...');
-        
+
         const update_running_jobs = [];
         this.running_jobs.forEach(rj => {
             if( rj.params.id != job.params.id) {
@@ -186,7 +183,7 @@ class Grid
         //     this.dismiss_session(job.session);
         // }
 
-        this.schedule();
+        await this.schedule();
     }
 }
 

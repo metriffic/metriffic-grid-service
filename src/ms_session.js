@@ -17,7 +17,7 @@ const ERROR = require('./logging').ERROR
 
 class Session
 {
-    constructor(params) 
+    constructor(params)
     {
         this.params = params;
         this.submitted = [];
@@ -27,80 +27,80 @@ class Session
                     `${JSON.stringify(this.params, undefined, 2)}`);
     }
 
-    is_batch() 
+    is_batch()
     {
         return this.params.type === JobType.batch;
     }
-    
-    is_interactive() 
+
+    is_interactive()
     {
         return this.params.type === JobType.interactive;
     }
-    
+
     is_done()
     {
         return this.running.length == 0 && this.submitted.length == 0;
     }
 
-    session_id() 
+    session_id()
     {
         const sid =  this.params.name + '-' + this.params.id;
         return sid;
     }
 
-    accept_next() 
+    async accept_next()
     {
         if(this.submitted.length && this.running.length < this.params.max_jobs) {
-            
-            const session = this;
-            if(session.total_jobs == session.submitted.length) { 
-                const mutation_running_session = gql`
-                mutation running_session($name: String!, $state: String!) { 
-                    sessionUpdateState(name: $name, state: $state) 
-                    { id } 
-                }`;
-                metriffic_client.gql.mutate({
-                    mutation: mutation_running_session,
-                    variables: { name: session.params.name, 
-                                 state: JobState.running }
-                }).then(function(ret) {
-                    // nothing
-                }).catch(function(err){
-                    console.log(ERROR(`[S] failed to update BE with 'running session' request [${LOG_SESSION(session)}]: ${err}.`));
-                });
-            }
 
+            const session = this;
+            if(session.total_jobs == session.submitted.length) {
+                try {
+                    const mutation_running_session = gql`
+                    mutation running_session($name: String!, $state: String!) {
+                        sessionUpdateState(name: $name, state: $state)
+                        { id }
+                    }`;
+                    const session_update = await metriffic_client.gql.mutate({
+                                    mutation: mutation_running_session,
+                                    variables: { name: session.params.name,
+                                                 state: JobState.running }
+                                });
+                // nothing
+                } catch(err) {
+                    console.log(ERROR(`[S] failed to update BE with 'running session' request [${LOG_SESSION(session)}]: ${err}.`));
+                }
+            }
 
             const job = session.submitted.shift();
             session.running.push(job);
-
-            // update the BE
-            const mutation_cancel_job = gql`
-            mutation cancel_job($jobId: Int!, $state: String!) { 
-                jobUpdate(id: $jobId, state: $state) 
-                { id } 
-            }`;
-            metriffic_client.gql.mutate({
-                mutation: mutation_cancel_job,
-                variables: { jobId: job.params.id, 
-                             state: JobState.running }
-            }).then(function(ret) {
-            }).catch(function(err){
+            try {
+                // update the BE
+                const mutation_cancel_job = gql`
+                mutation cancel_job($jobId: Int!, $state: String!) {
+                    jobUpdate(id: $jobId, state: $state)
+                    { id }
+                }`;
+                const job_update = await metriffic_client.gql.mutate({
+                            mutation: mutation_cancel_job,
+                            variables: { jobId: job.params.id,
+                                         state: JobState.running }
+                        })
+            } catch(err) {
                 console.log(ERROR(`[S] failed to update BE with 'running job' request [${LOG_JOB(job)}]: ${err}.`));
-            });
+            }
 
             //console.log(`[S] accepting job[${LOG_JOB(job)}] from session [${LOG_SESSION(this)}], ` +
-            //            `total jobs: ${this.submitted.length} submitted, ` + 
+            //            `total jobs: ${this.submitted.length} submitted, ` +
             //            `${this.running.length} running.`);
             return job;
         }
         return null;
     }
 
-    on_complete(job) 
+    async on_complete(job)
     {
         const running_updated = [];
-        this.running.forEach(running_job => {
+        this.running.forEach(async (running_job) => {
             if( running_job.params.id == job.params.id) {
 
                 console.log(`[S] removed completed job [${LOG_JOB(job)}], \n`,
@@ -108,21 +108,22 @@ class Session
                             `\t\tstarted  \t${LOG_TIME(job.start_timestamp)} \n`,
                             `\t\tfinished \t${LOG_TIME(job.complete_timestamp)}`);
 
-                // update the BE
-                const mutation_complete_job = gql`
-                mutation cancel_job($jobId: Int!, $state: String!) { 
-                    jobUpdate(id: $jobId, state: $state) 
-                    { id } 
-                }`;
-                metriffic_client.gql.mutate({
-                    mutation: mutation_complete_job,
-                    variables: { jobId: running_job.params.id, 
-                                 state: job.state }
-                }).then(function(ret) {
+                try {
+                    // update the BE
+                    const mutation_complete_job = gql`
+                    mutation cancel_job($jobId: Int!, $state: String!) {
+                        jobUpdate(id: $jobId, state: $state)
+                        { id }
+                    }`;
+                    const job_update = await metriffic_client.gql.mutate({
+                                mutation: mutation_complete_job,
+                                variables: { jobId: running_job.params.id,
+                                             state: job.state }
+                            })
                     // nothing
-                }).catch(function(err){
+                } catch(err) {
                     console.log(ERROR(`[S] failed to update BE with 'complete job' request [${LOG_JOB(running_job)}]: ${err}.`));
-                });
+                }
             } else {
                 running_updated.push(running_job);
             }
@@ -134,7 +135,7 @@ class Session
         this.running = running_updated;
     }
 
-    async start() 
+    async start()
     {
         const params = this.params;
 
@@ -156,7 +157,7 @@ class Session
                         command         : params.command,
                         complete_cb     : params.job_complete_cb,
                         out_file        : path.join(output_folder, 'job.'+ds+'.log'),
-                        userspace       : path.join(config.USERSPACE_NFS_DIR_ROOT, params.username),   
+                        userspace       : path.join(config.USERSPACE_NFS_DIR_ROOT, params.username),
                         publicspace     : config.PUBLICSPACE_NFS_DIR_ROOT,
                         docker_registry : params.docker_registry,
                         docker_image    : params.docker_image,
@@ -168,7 +169,7 @@ class Session
                     //bindings.push(`${path.resolve(ds)}:/input/${ds}`);
                     jobs.push(new Job(jparams));
                 });
-        } else 
+        } else
         if(this.is_interactive()) {
                 const jparams = {
                     session_name    : params.name,
@@ -187,56 +188,63 @@ class Session
                     type            : JobType.interactive,
                     exclusive       : true,
                 };
-            jobs.push(new Job(jparams));         
+            jobs.push(new Job(jparams));
         } else {
             console.log(ERROR(`[S] error: unknown session type: [${this.params.type}]...`));
             // TBD: make sure the session is canceled
         }
-        return this.submit(jobs);
+        await this.submit(jobs);
     }
-    
-    async stop() 
-    {  
+
+    async stop()
+    {
         const session = this;
+
         console.log('[S] stopping the session');
-        this.running.forEach(running_job => {
+        console.log(`[S] submitted but not yet running jobs to be canceled: ${this.submitted.length}`);
+        this.submitted.forEach(submitted_job => console.log(`[S]  -> canceling job: ${LOG_JOB(submitted_job)}`));
+        this.submitted = [];
+        this.running.forEach(async (running_job) => {
+            console.log(`[S] canceling running job ${LOG_JOB(running_job)}`);
             running_job.cancel();
-            // update the BE
-            const mutation_cancel_job = gql`
-            mutation cancel_job($jobId: Int!, $state: String!) { 
-                jobUpdate(id: $jobId, state: $state) 
-                { id } 
-            }`;
-            metriffic_client.gql.mutate({
-                mutation: mutation_cancel_job,
-                variables: { jobId: running_job.params.id, 
-                            state: JobState.canceled }
-            }).then(function(ret) {
+            try {
+                // update the BE
+                const mutation_cancel_job = gql`
+                mutation cancel_job($jobId: Int!, $state: String!) {
+                    jobUpdate(id: $jobId, state: $state)
+                    { id }
+                }`;
+                const job_update = await metriffic_client.gql.mutate({
+                    mutation: mutation_cancel_job,
+                    variables: { jobId: running_job.params.id,
+                                state: JobState.canceled }
+                })
                 // nothing
-            }).catch(function(err){
+            } catch(err) {
                 console.log(ERROR(`[S] failed to update BE with 'cancel job' request [${LOG_JOB(running_job)}]: ${err}.`));
-            });
+            }
         });
-        
+
         const session_state = (this.running.length == 0 && this.submitted.length == 0) ? JobState.completed : JobState.canceled;
 
-        const mutation_stop_session = gql`
-        mutation stop_session($name: String!, $state: String!) { 
-            sessionUpdateState(name: $name, state: $state) 
-            { id } 
-        }`;
-        metriffic_client.gql.mutate({
-            mutation: mutation_stop_session,
-            variables: { name: session.params.name, 
-                         state: session_state }
-        }).then(function(ret) {
+        try {
+            const mutation_stop_session = gql`
+            mutation stop_session($name: String!, $state: String!) {
+                sessionUpdateState(name: $name, state: $state)
+                { id }
+            }`;
+            const session_stop = await metriffic_client.gql.mutate({
+                mutation: mutation_stop_session,
+                variables: { name: session.params.name,
+                             state: session_state }
+            })
             // nothing
-        }).catch(function(err){
+        } catch(err) {
             console.log(ERROR(`[S] failed to update BE with 'cancel session' request [${LOG_SESSION(session)}]: ${err}.`));
-        });
+        }
     }
 
-    create_session_output_folder() 
+    create_session_output_folder()
     {
         const folder = path.join(config.USERSPACE_DIR_ROOT, this.params.username, 'sessions', this.session_id());
         const output_folder = path.join(folder, 'output');
@@ -245,28 +253,30 @@ class Session
         return [folder, output_folder];
     }
 
-    async submit(jobs) 
+    async submit(jobs)
     {
         this.total_jobs = jobs.length;
         const session = this;
 
-        // update the BE
-        const datasets = jobs.map(j => {
-            return j.params.dataset;
-        });
+        try {
+            // update the BE
+            const datasets = jobs.map(j => {
+                return j.params.dataset;
+            });
 
-        const mutation_submit_job = gql`
-        mutation ms($sessionId: Int!, $datasets: String!) { 
-            jobCreate(sessionId: $sessionId, datasets: $datasets) 
-            { id dataset }
-        }`;
-        return metriffic_client.gql.mutate({
-            mutation: mutation_submit_job,
-            variables: { sessionId: session.params.id, 
-                         datasets: JSON.stringify(datasets) }
-        }).then(function(ret) {
-           const submitted_be_jobs = ret.data.jobCreate;
+            const mutation_submit_job = gql`
+            mutation ms($sessionId: Int!, $datasets: String!) {
+                jobCreate(sessionId: $sessionId, datasets: $datasets)
+                { id dataset }
+            }`;
+            const job_create = await metriffic_client.gql.mutate({
+                mutation: mutation_submit_job,
+                variables: { sessionId: session.params.id,
+                             datasets: JSON.stringify(datasets) }
+            })
+           const submitted_be_jobs = job_create.data.jobCreate;
            jobs.forEach(job => {
+                console.log(`[S] trying to submit job ${job}`);
                 const sbej = submitted_be_jobs.find(j => {
                     return j.dataset == job.params.dataset;
                 });
@@ -274,12 +284,12 @@ class Session
                 job.params.id = sbej.id;
                 job.submit_timestamp = Date.now();
                 session.submitted.push(job);
-                console.log(`[S] submitted job [${LOG_JOB(job)}] for session[${LOG_SESSION(session)}], `+ 
+                console.log(`[S] submitted job [${LOG_JOB(job)}] for session[${LOG_SESSION(session)}], `+
                             `total submitted: ${session.submitted.length} jobs`);
             });
-        }).catch(function(err){
-            console.log(ERROR(`[S] failed to submit job [${LOG_JOB(job)}] for session[${LOG_SESSION(session)}]: ${err}.`));
-        });
+        } catch(err) {
+            console.log(ERROR(`[S] failed to submit a job from session[${LOG_SESSION(session)}]: ${err}.`));
+        }
     }
 };
 
