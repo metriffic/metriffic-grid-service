@@ -55,13 +55,14 @@ class Job
     stop_container()
     {
         const job = this;
+        console.log(`[J] stopping container for job ${job}`);
         // release the ssh port if one was reserved for the job
         if(job.user && job.user.port) {
             ssh_manager.release_port(job);
         }
         // stop the container...
         if(job.container) {
-            console.log(`[J] stopping container for job[${LOG_JOB(job)}] on board[${LOG_BOARD(job.board)}]`);
+            console.log(`[J] calling container stop for job[${LOG_JOB(job)}] on board[${LOG_BOARD(job.board)}]`);
             return job.container.stop()
                     .then(function(data) {
                         console.log(`[J] job[${LOG_JOB(job)}] is complete...`);
@@ -73,13 +74,15 @@ class Job
                         }
                     }).finally(function(){
                         // check if the board exists and stop it (need the check in case it's already stopped)
+                        console.log('[J] stopping the container running on board', job.board);
                         if(job.board) {
                             job.board.release();
                             job.board = null;
                             job.params.complete_cb(job);
                         }
                     });
-        } else {
+        } else
+        if(job.board) {
             job.board.release();
             job.board = null;
             job.params.complete_cb(job);
@@ -288,7 +291,7 @@ class Job
         // if this is an interactive session, prepare ssh-manager and set up docker port forwarding
         if(job.is_interactive()) {
             await ssh_manager.setup_session(job);
-            job.params.command = ["/bin/bash", "-c", `echo "${job.params.user_key}" >> ~/.ssh/authorized_keys; service ssh start`];
+            job.params.command = ["/bin/bash", "-c", `echo "${job.params.user_key}" > /root/.ssh/authorized_keys; service ssh start`];
             exposed_ports = { "22/tcp": {}};
             host_config.PortBindings = { '22/tcp': [{'HostPort': job.ssh_user.docker_port.toString(),
                                                     'HostIp': job.ssh_user.docker_host}]};
