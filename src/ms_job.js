@@ -478,13 +478,14 @@ class Job
         this.stop_container();
     }
 
-    async save(docker_image_name, docker_image_description) {
+    async save(docker_imagename, docker_image_description) {
         const job = this;
-        const docker_repo = job.params.docker_registry + '/' + docker_image_name;
+        const docker_full_imagename = job.params.username + '/' + docker_imagename
+        const docker_repo = job.params.docker_registry + '/' + docker_full_imagename;
         try {
             await job.docker_container_commit(docker_repo);
         } catch(err) {
-            console.log(ERROR(`[J] error: failed to commit from container [${LOG_CONTAINER(job.container.id)}] as [${LOG_IMAGE(docker_image_name)}], ${err}`,));
+            console.log(ERROR(`[J] error: failed to commit from container [${LOG_CONTAINER(job.container.id)}] as [${LOG_IMAGE(docker_full_imagename)}], ${err}`,));
             publish_to_user_stream(job.params.username, {
                 type: 'commit_error',
                 error: err,
@@ -494,11 +495,11 @@ class Job
 
         try {
             await job.docker_image_push(docker_repo);
-            await job.register_new_docker_image(job.params.platform_id, docker_image_name,
+            await job.register_new_docker_image(job.params.platform_id, docker_full_imagename,
                                                 job.params.docker_options, docker_image_description);
         }
         catch(err) {
-            console.log(ERROR(`[J] error: failed to save image [${LOG_IMAGE(docker_image_name)}]: ${err}...`));
+            console.log(ERROR(`[J] error: failed to save image [${LOG_IMAGE(docker_full_imagename)}]: ${err}...`));
             publish_to_user_stream(job.params.username, {
                 type: 'commit_error',
                 error: err,
@@ -507,24 +508,24 @@ class Job
         }
     }
 
-    async register_new_docker_image(docker_platform_id, docker_image,
+    async register_new_docker_image(docker_platform_id, docker_full_imagename,
                                     docker_options, docker_descritions)
     {
         docker_descritions = "blabla";
         const job = this;
         const docker_image_create = gql`
         mutation dockerImageCreate ($platformId: Int!, $userId: Int!, $name: String!,
-                                    $options: String, $description: String) { 
+                                    $options: String, $description: String) {
             dockerImageCreate(platformId: $platformId, userId: $userId, name: $name,
-                              options: $options, description: $description) 
+                              options: $options, description: $description)
             { id }
         }`;
 
         metriffic_client.gql.mutate({
             mutation: docker_image_create,
-            variables: { platformId: docker_platform_id, 
+            variables: { platformId: docker_platform_id,
                          userId: job.params.user_id,
-                         name: job.params.username + '/' + docker_image,
+                         name: docker_full_imagename,
                          options: JSON.stringify(docker_options),
                          description: docker_descritions }
         }).then(function(ret) {
