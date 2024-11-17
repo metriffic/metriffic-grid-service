@@ -8,9 +8,9 @@ const { ERROR } = require('./logging')
 const { publish_to_user_stream } = require('./data_stream');
 
 
-class Metriffic 
-{       
-    constructor() 
+class Metriffic
+{
+    constructor()
     {
         this.grids = {};
         this.start();
@@ -35,7 +35,7 @@ class Metriffic
     }
 
     on_session_added(input_data)
-    {        
+    {
         const grid = this.grids[input_data.platform_id];
         const command = JSON.parse(input_data.command);
         const datasets = JSON.parse(input_data.datasets);
@@ -70,10 +70,16 @@ class Metriffic
     {
         const grid = this.grids[data.platform_id];
         const session = grid.get_session(data.session_id);
-        
-        const docker_image = data.docker_image;        
+
+        const docker_image = data.docker_image;
         if(session) {
             grid.save_session(session, docker_image);
+        } else {
+            console.log(`[M] failed to save the image for session ${data.session_name}, session doesn't exist...`);
+            publish_to_user_stream(data.username, {
+                type: 'commit_error',
+                error: 'session is not available (terminated?)',
+            });
         }
     }
 
@@ -125,8 +131,8 @@ class Metriffic
                     name: rj.params.dataset + '#' + rj.params.id,
                     type: rj.params.type,
                     start: new Date(rj.start_timestamp).toLocaleString(),
-                    container: rj.container.id.substring(0,10),  
-                    board: rj.board.hostname,                        
+                    container: rj.container.id.substring(0,10),
+                    board: rj.board.hostname,
                 })
             })
             grid.subscribers.forEach((ss) => {
@@ -135,7 +141,7 @@ class Metriffic
                     user: ss.params.username,
                     total_jobs: ss.total_jobs,
                     remaining_jobs: ss.submitted.length,
-                    running_jobs: ss.running.length,                    
+                    running_jobs: ss.running.length,
                 });
             })
             session_data.push(one_platform);
@@ -144,7 +150,7 @@ class Metriffic
     }
 
     async on_admin_command(update)
-    {        
+    {
         if(update.command == 'DIAGNOSTICS') {
             update.data = {};
             const platform_data = await this.collect_platform_diagnostics();
@@ -160,10 +166,10 @@ class Metriffic
         const metriffic = this;
 
         const subscribe_boards = gql`
-        subscription subsBoard { 
+        subscription subsBoard {
             subsBoard { mutation data {hostname ip platform {id name}}}
         }`;
-            
+
         // subscribe to board updates
         metriffic_client.gql.subscribe({
             query: subscribe_boards,
@@ -187,7 +193,7 @@ class Metriffic
 
         // subscribe to session updates
         const subscribe_sessions = gql`
-        subscription subsSession { 
+        subscription subsSession {
             subsSession { mutation data }
         }`;
 
@@ -205,7 +211,7 @@ class Metriffic
                         metriffic.on_session_removed(update_data);
                     }
                     // TBD: handle other state transitions...
-                } else 
+                } else
                 if(update.mutation === "REQUESTED_SAVE") {
                     metriffic.on_session_save(update_data);
                 } else {
@@ -219,10 +225,10 @@ class Metriffic
 
           // subscribe to session updates
           const subscribe_admin = gql`
-          subscription subsAdmin { 
+          subscription subsAdmin {
               subsAdmin { username command data }
           }`;
-  
+
           metriffic_client.gql.subscribe({
               query: subscribe_admin,
           }).subscribe({
@@ -230,7 +236,7 @@ class Metriffic
                   const update = ret.data.subsAdmin
                   if(update.command === "DIAGNOSTICS") {
                       metriffic.on_admin_command(update);
-                      
+
                   } else {
                       console.log(ERROR(`[M] error: received unknown admin command: ${update}`));
                   }
@@ -243,10 +249,10 @@ class Metriffic
 
     async start_platform_grids()
     {
-        const metriffic = this; 
+        const metriffic = this;
 
-        const all_platforms_gql = gql`{ 
-                allPlatforms { id name description } 
+        const all_platforms_gql = gql`{
+                allPlatforms { id name description }
             }`;
 
         // a query with apollo-client
@@ -261,7 +267,7 @@ class Metriffic
             // pull boards for this platform
             const all_boards_gql = gql`
                     query allBoards($platformName: String) {
-                        allBoards (platformName: $platformName) 
+                        allBoards (platformName: $platformName)
                         {id hostname ip description}
                     }`;
             metriffic_client.gql.query({
@@ -271,25 +277,25 @@ class Metriffic
             .then(function(all_boards) {
                 all_boards.data.allBoards.forEach(board => {
                         metriffic.grids[platform.id].register_board(new Board({
-                                platform: platform.name, 
+                                platform: platform.name,
                                 hostname: board.hostname,
                                 ip: board.ip
                             }));
-                    });    
+                    });
                 metriffic.grids[platform.id].start();
             });
         });
         await Promise.all(promises);
     }
 
-    async add_existing_sessions() 
+    async add_existing_sessions()
     {
         const metriffic = this;
         const all_sessions_gql = gql`
-            query{ allSessions(platformName: "" status: "SUBMITTED") 
-              { id name type user{username} max_jobs datasets command platform{id} dockerImage{name}} 
+            query{ allSessions(platformName: "" status: "SUBMITTED")
+              { id name type user{username} max_jobs datasets command platform{id} dockerImage{name}}
             }`;
-            
+
         const all_sessions = await metriffic_client.gql.query({
                                 query: all_sessions_gql,
                             });
@@ -299,11 +305,11 @@ class Metriffic
                             }
                             // TBD: handle other states
                         });
-        
+
     }
 
 };
 
-   
+
 
 module.exports.Metriffic = Metriffic;
