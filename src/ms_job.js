@@ -513,17 +513,18 @@ class Job
         docker_descritions = "blabla";
         const job = this;
         const docker_image_create = gql`
-        mutation dockerImageCreate ($platformId: Int!, $name: String!,
-                                    $options: String, $description: String) {
-            dockerImageCreate(platformId: $platformId, name: $name,
-                              options: $options, description: $description)
+        mutation dockerImageCreate ($platformId: Int!, $userId: Int!, $name: String!,
+                                    $options: String, $description: String) { 
+            dockerImageCreate(platformId: $platformId, userId: $userId, name: $name,
+                              options: $options, description: $description) 
             { id }
         }`;
 
         metriffic_client.gql.mutate({
             mutation: docker_image_create,
-            variables: { platformId: docker_platform_id,
-                         name: docker_image,
+            variables: { platformId: docker_platform_id, 
+                         userId: job.params.user_id,
+                         name: job.params.username + '/' + docker_image,
                          options: JSON.stringify(docker_options),
                          description: docker_descritions }
         }).then(function(ret) {

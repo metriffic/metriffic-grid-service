@@ -152,6 +152,7 @@ class Session
                         session_name    : params.name,
                         platform_id     : params.platform_id,
                         username        : params.username,
+                        user_id         : params.user_id,
                         user_key        : params.user_key,
                         dataset         : ds,
                         command         : params.command,
@@ -175,6 +176,7 @@ class Session
                     session_name    : params.name,
                     platform_id     : params.platform_id,
                     username        : params.username,
+                    user_id         : params.user_id,
                     user_key        : params.user_key,
                     dataset         : 'interactive',
                     command         : [],
@@ -199,7 +201,6 @@ class Session
     async stop()
     {
         const session = this;
-
         console.log('[S] stopping the session');
         console.log(`[S] submitted but not yet running jobs to be canceled: ${this.submitted.length}`);
         this.submitted.forEach(submitted_job => console.log(`[S]  -> canceling job: ${LOG_JOB(submitted_job)}`));
@@ -283,6 +284,7 @@ class Session
                 job.session = session;
                 job.params.id = sbej.id;
                 job.submit_timestamp = Date.now();
+                // vazk added to submitted!
                 session.submitted.push(job);
                 console.log(`[S] submitted job [${LOG_JOB(job)}] for session[${LOG_SESSION(session)}], `+
                             `total submitted: ${session.submitted.length} jobs`);

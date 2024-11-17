@@ -48,6 +48,7 @@ class Metriffic
             docker_options: input_data.docker_options ? JSON.parse(input_data.docker_options) : {},
             docker_registry: config.DOCKER_REGISTRY_HOST,
             username: input_data.username,
+            user_id: input_data.user_id,
             user_key: input_data.user_key,
             command: command,
             datasets: datasets,

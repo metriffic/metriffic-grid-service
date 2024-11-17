@@ -156,6 +156,8 @@ class Grid
             } else {
                 num_skipped++;
             }
+            // move this session to the back of the queue
+            // [questionable strategy, rething this!]
             grid.subscribers.push(grid.subscribers.shift());
         }
     }
