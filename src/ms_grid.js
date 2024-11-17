@@ -112,6 +112,7 @@ class Grid
 
     save_session(session, docker_image_name)
     {
+        // this is only defined for interactive session with a single job, so [0] is fine.
         const job = session.running[0];
         if(job) {
             console.log(`[G] saving docker-image for session[${LOG_SESSION(session)}] as ${LOG_IMAGE(docker_image_name)}`);
