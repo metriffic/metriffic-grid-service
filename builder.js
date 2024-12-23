@@ -77,23 +77,22 @@ function create_docker_image()
 
 function create_session()
 {
-    const datasets = ["bla", "foo"];
     const commands = ["/bin/bash", "-c", "export"];
     //const datasets_str = "\"" + JSON.stringify(datasets) + "\"";
     //const command_str = "\"" + JSON.stringify(commands) + "\"";
-    const datasets_str = JSON.stringify(datasets);
+    const datasetSplit = 2;
     const command_str = JSON.stringify(commands);
 
 
     const mutation_create_session = gql`
     mutation ms($datasets: String!, $command: String!) { 
-        createSession(name:"test-session", datasets: $datasets, max_jobs: 1, 
+        createSession(name:"test-session", datasetSplit: $datasetSplit, maxJobs: 1, 
                       command: $command, platformId:1, dockerImageId: 1) 
-        { id name datasets max_jobs command platform{id} dockerImage{id}} 
+        { id name datasets maxJobs command platform{id} dockerImage{id}} 
     }`;
     gql_client.mutate({
         mutation: mutation_create_session,
-        variables: { datasets: datasets_str, 
+        variables: { datasetSplit: datasetSplit, 
                      command: command_str }
     }).then(function(ret) {
         console.log('CREATED', ret.data);

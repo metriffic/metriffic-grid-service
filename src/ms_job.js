@@ -274,7 +274,6 @@ class Job
     {
         const job = this;
         const board = job.board;
-        const job_id = this.params.uid;
         const session_name = this.params.session_name;
         const userspace =  'workspace.' + this.params.username;
         const publicspace = 'publicspace';
@@ -291,10 +290,12 @@ class Job
         // if this is an interactive session, prepare ssh-manager and set up docker port forwarding
         if(job.is_interactive()) {
             await ssh_manager.setup_session(job);
-            job.params.command = ["/bin/bash", "-c", `echo "${job.params.user_key}" > /root/.ssh/authorized_keys; service ssh start`];
+            job.params.exec_command = ["/bin/bash", "-c", `echo "${job.params.user_key}" > /root/.ssh/authorized_keys; service ssh start`];
             exposed_ports = { "22/tcp": {}};
             host_config.PortBindings = { '22/tcp': [{'HostPort': job.ssh_user.docker_port.toString(),
                                                     'HostIp': job.ssh_user.docker_host}]};
+        } else {
+            job.params.exec_command = ["/bin/bash", "-c", `${job.params.command} --dataset-chunk ${job.params.dataset_chunk}`];
         }
         const container = await board.docker.createContainer({
                                             Image: job.docker_image(),
@@ -360,9 +361,9 @@ class Job
     async docker_container_exec()
     {
         const job = this;
-        console.log(`[J] executing command [${job.params.command}]`);
+        console.log(`[J] executing command [${job.params.exec_command}]`);
         const exec = await job.container.exec({
-                                    Cmd: job.params.command,
+                                    Cmd: job.params.exec_command,
                                     AttachStdout: true,
                                     AttachStderr: true,
                                     Tty: true

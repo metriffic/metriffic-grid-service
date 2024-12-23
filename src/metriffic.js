@@ -19,9 +19,9 @@ class Metriffic
     async start()
     {
         console.log('[M] starting service...');
-        await this.start_platform_grids();
+        const unfinished_sessions = await this.request_unfinished_sessions();
+        await this.start_platform_grids(unfinished_sessions);
         await this.subscribe_to_gql_updates();
-        await this.add_existing_sessions();
     }
 
     on_board_added(data)
@@ -38,7 +38,6 @@ class Metriffic
     {
         const grid = this.grids[input_data.platform_id];
         const command = JSON.parse(input_data.command);
-        const datasets = JSON.parse(input_data.datasets);
         const data = {
             id: input_data.session_id,
             name: input_data.session_name,
@@ -51,8 +50,8 @@ class Metriffic
             user_id: input_data.user_id,
             user_key: input_data.user_key,
             command: command,
-            datasets: datasets,
-            max_jobs: input_data.max_jobs,
+            dataset_split: input_data.datasetSplit,
+            max_jobs: input_data.maxJobs,
         };
         grid.submit_session(data);
     }
@@ -247,7 +246,7 @@ class Metriffic
           });
     }
 
-    async start_platform_grids()
+    async start_platform_grids(unfinished_sessions)
     {
         const metriffic = this;
 
@@ -260,54 +259,94 @@ class Metriffic
                                         query: all_platforms_gql
                                     });
 
-        const promises = all_platforms.data.allPlatforms.map(function(platform) {
+        const promises = all_platforms.data.allPlatforms.map(async (platform) => {
             console.log(`[M] Building grid-manager for platform[${platform.name}]`);
             // create a new grid for the platform
-            metriffic.grids[platform.id] = new Grid(platform);
+            const grid = new Grid(platform);
+            metriffic.grids[platform.id] = grid;
             // pull boards for this platform
             const all_boards_gql = gql`
                     query allBoards($platformName: String) {
                         allBoards (platformName: $platformName)
                         {id hostname ip description}
                     }`;
-            metriffic_client.gql.query({
+            const all_boards = await metriffic_client.gql.query({
                             query: all_boards_gql,
                             variables: {platformName: platform.name},
                         })
-            .then(function(all_boards) {
-                all_boards.data.allBoards.forEach(board => {
-                        metriffic.grids[platform.id].register_board(new Board({
+            all_boards.data.allBoards.forEach(board => {
+                        grid.register_board(new Board({
                                 platform: platform.name,
                                 hostname: board.hostname,
                                 ip: board.ip
                             }));
                     });
-                metriffic.grids[platform.id].start();
-            });
+            //console.log('UFS', platform.id, unfinished_sessions.get(platform.id))
+            metriffic.grids[platform.id].start(unfinished_sessions.get(platform.id));
         });
         await Promise.all(promises);
     }
 
-    async add_existing_sessions()
+    async request_unfinished_sessions()
     {
         const metriffic = this;
         const all_sessions_gql = gql`
-            query{ allSessions(platformName: "" status: "SUBMITTED")
-              { id name type user{username} max_jobs datasets command platform{id} dockerImage{name}}
+            query all_sessions($platformName: String, $state: [String]) {
+              allSessions(platformName: $platformName, state: $state)
+              { id name type state user{username id userKey} maxJobs datasetSplit command platform{id} dockerImage{name options}}
             }`;
 
         const all_sessions = await metriffic_client.gql.query({
                                 query: all_sessions_gql,
+                                variables: { platformName: null,
+                                             state: ['SUBMITTED','RUNNING'] }
                             });
+        //console.log('EXISTING', JSON.stringify(all_sessions, undefined, 4))
+        const unfinished_sessions = new Map();
         all_sessions.data.allSessions.forEach(session => {
-                            if(session.state === "SUBMITTED") {
-                                metriffic.on_session_added(session);
-                            }
-                            // TBD: handle other states
-                        });
-
+                            console.log('EEEEEE', session.platform)
+                            const uf_session = {
+                                    username: session.user.username,
+                                    user_id: session.user.id,
+                                    user_key: session.user.userKey,
+                                    session_id: session.id,
+                                    session_name : session.name,
+                                    session_type: session.type,
+                                    platform_id: session.platform.id,
+                                    docker_image: session.dockerImage.name,
+                                    docker_options: session.dockerImage.options,
+                                    command: session.command,
+                                    dataset_split: session.datasetSplit,
+                                    max_jobs: session.maxJobs,
+                                    state: session.state,
+                                };
+                            if(unfinished_sessions.has(uf_session.platform_id)) 
+                                unfinished_sessions.get(uf_session.platform_id).push(uf_session);
+                            else
+                                unfinished_sessions.set(uf_session.platform_id, [uf_session]);
+                        }
+        );
+        console.log('UNFINISHED SESSIONS', unfinished_sessions);
+        return unfinished_sessions;
     }
 
+    // async update_session(session_name, session_state) {
+    //     try {
+    //         const mutation_running_session = gql`
+    //         mutation running_session($name: String!, $state: String!) {
+    //             sessionUpdateState(name: $name, state: $state)
+    //             { id }
+    //         }`;
+    //         const session_update = await metriffic_client.gql.mutate({
+    //                         mutation: mutation_running_session,
+    //                         variables: { name: session.params.name,
+    //                                     state: state }
+    //                     });
+    //     // nothing
+    //     } catch(err) {
+    //         console.log(ERROR(`[S] failed to update BE with 'running session' request [${LOG_SESSION(session)}]: ${err}.`));
+    //     }
+    // }
 };
 
 

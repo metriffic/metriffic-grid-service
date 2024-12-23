@@ -7,7 +7,7 @@ function user_str(username)
 
 function job_str(job) 
 {
-    return (job.params.dataset + '#' + job.params.id).green;
+    return (job.params.session_name + '#' + job.params.id).green;
 }
 
 function board_str(board) 
