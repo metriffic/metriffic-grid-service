@@ -1,4 +1,5 @@
 const path = require('path');
+const config = require('./config')
 const metriffic_client = require('./metriffic_gql').metriffic_client
 const { Job, JobState } = require('./ms_job');
 const Session = require('./ms_session').Session;
@@ -54,13 +55,13 @@ class Grid
         //   2. if a BE running job with container => add to running list
         //   3. if a BE scheduled job with no container => add the session to the queue
         //   4. if a running container with no job => push to orphan list
-        //   5. if a running container for scheduled session => change BE scheduled to running, same for job 
-        unfinished_sessions?.forEach(async (session) => { 
+        //   5. if a running container for scheduled session => change BE scheduled to running, same for job
+        unfinished_sessions?.forEach(async (session) => {
 
             const session_jobs = await metriffic_client.get_jobs_gql(session.session_id);
             if(!session_jobs) return;
-            
-            console.log('SESSION_JOBS', session_jobs)            
+
+            console.log('SESSION_JOBS', session_jobs)
             const running_jobs = [];
             const submitted_jobs = [];
             const grid = this;
@@ -80,9 +81,9 @@ class Grid
                         const jparams = grid.build_job_params(job, session);
                         running_jobs.push(new Job(jparams));
                         running_containers.splice(fi, 1);
-                        await metriffic_client.update_job_gql(job.id, JobState.running);                        
+                        await metriffic_client.update_job_gql(job.id, JobState.running);
                     }
-                } else 
+                } else
                 if(job.state === JobState.running) {
                     if(fi == -1) {
                         console.log('CHKPT case#1');
@@ -94,7 +95,7 @@ class Grid
                         running_jobs.push(new Job(jparams));
                         running_containers.splice(fi, 1);
                     }
-                } 
+                }
             })
             // update the session state
             if(running_jobs.length || submitted_jobs.length) {
@@ -307,8 +308,8 @@ class Grid
         //     const str = container.Names[0]
         //     const regex = /^(?:\/)?session-([^.]+(?:\.[^.]+)*?)\.job-(\d+)$/;
         //     const match = str.match(regex);
-        //     return match ? { session_name: match[1], 
-        //                      job_id: match[2], 
+        //     return match ? { session_name: match[1],
+        //                      job_id: match[2],
         //                      container_id: container.Id }
         //                  : { container_id: container.Id };
         // }
@@ -327,7 +328,7 @@ class Grid
         const running_containers = [];
         const promises = this.boards.map( async (board) => {
             try {
-                const containers = await board.docker.listContainers({ all: true });                
+                const containers = await board.docker.listContainers({ all: true });
                 containers.forEach((container) => {
                     console.log(`[G] found running container on grid[${platform_name}]: [${JSON.stringify(container, null, 4)}]`);
                     const info = get_running_container_info(container);
@@ -340,7 +341,7 @@ class Grid
         });
 
         await Promise.all(promises);
-        console.log(`[G] all containers for grid[${platform_name}] boards: ` + 
+        console.log(`[G] all containers for grid[${platform_name}] boards: ` +
                         `${running_containers?.length ? JSON.stringify(running_containers, null, 4) : 'n/a'}`);
         return running_containers;
     }
@@ -353,7 +354,7 @@ class Grid
                 user_id         : session.user_id,
                 user_key        : session.user_key,
                 dataset         : job.dataset,
-                command         : session.command, 
+                command         : session.command,
                 userspace       : path.join(config.USERSPACE_NFS_DIR_ROOT, session.username),
                 publicspace     : config.PUBLICSPACE_NFS_DIR_ROOT,
                 docker_registry : config.DOCKER_REGISTRY_HOST,
