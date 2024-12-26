@@ -23,12 +23,12 @@ class Session
         this.submitted = submitted_jobs;
         this.submitted.forEach(sj => {
             sj.complete_cb = params.job_complete_cb,
-            sj.out_file = params.create_session_output_folder()
+            sj.out_file = this.create_session_output_folder()
         })
         this.running = running_jobs;
         this.running.forEach(rj => {
             rj.complete_cb = params.job_complete_cb,
-            rj.out_file = params.create_session_output_folder()
+            rj.out_file = this.create_session_output_folder()
         })
         this.total_jobs = this.running.length + this.submitted.length;
         console.log('[S] initialized session with following params:\n',
