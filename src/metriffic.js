@@ -50,8 +50,8 @@ class Metriffic
             user_id: input_data.user_id,
             user_key: input_data.user_key,
             command: command,
-            dataset_split: input_data.datasetSplit,
-            max_jobs: input_data.maxJobs,
+            dataset_split: input_data.dataset_split,
+            max_jobs: input_data.max_jobs,
         };
         grid.submit_session(data);
     }
