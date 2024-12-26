@@ -295,7 +295,7 @@ class Job
             host_config.PortBindings = { '22/tcp': [{'HostPort': job.ssh_user.docker_port.toString(),
                                                     'HostIp': job.ssh_user.docker_host}]};
         } else {
-            job.params.exec_command = ["/bin/bash", "-c", `${job.params.command} --dataset-chunk ${job.params.dataset_chunk}`];
+            job.params.exec_command = ["/bin/bash", "-c", `${job.params.command} ${session_name} ${job.params.dataset_chunk}`];
         }
         const container = await board.docker.createContainer({
                                             Image: job.docker_image(),
