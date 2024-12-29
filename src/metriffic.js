@@ -206,7 +206,9 @@ class Metriffic
                     metriffic.on_session_added(update_data);
                 } else
                 if(update.mutation === "UPDATED") {
-                    if(update_data.session_state === "CANCELED") {
+                    if(update_data.session_state === "CANCELED" ||
+                        update_data.session_state === "COMPLETED" 
+                    ) {
                         metriffic.on_session_removed(update_data);
                     }
                     // TBD: handle other state transitions...
