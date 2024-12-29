@@ -222,28 +222,46 @@ class Metriffic
             }
         });
 
-          // subscribe to session updates
-          const subscribe_admin = gql`
-          subscription subsAdmin {
-              subsAdmin { username command data }
-          }`;
+        // subscribe to session updates
+        const subscribe_admin = gql`
+        subscription subsAdmin {
+            subsAdmin { username command data }
+        }`;
 
-          metriffic_client.gql.subscribe({
-              query: subscribe_admin,
-          }).subscribe({
-              next(ret) {
-                  const update = ret.data.subsAdmin
-                  if(update.command === "DIAGNOSTICS") {
-                      metriffic.on_admin_command(update);
+        metriffic_client.gql.subscribe({
+            query: subscribe_admin,
+        }).subscribe({
+            next(ret) {
+                const update = ret.data.subsAdmin
+                if(update.command === "DIAGNOSTICS") {
+                    metriffic.on_admin_command(update);
 
-                  } else {
-                      console.log(ERROR(`[M] error: received unknown admin command: ${update}`));
-                  }
-              },
-              error(err) {
-                  console.log('ERROR: failed to subscribe', err);
-              }
-          });
+                } else {
+                    console.log(ERROR(`[M] error: received unknown admin command: ${update}`));
+                }
+            },
+            error(err) {
+                console.log('ERROR: failed to subscribe', err);
+            }
+        });
+
+        // subscribe to user updates
+        const subscribe_heartbeat = gql`
+        subscription hearBeat {
+            subsHeartBeat { beat_num }
+        }`;
+
+        metriffic_client.gql.subscribe({
+            query: subscribe_heartbeat,
+        }).subscribe({
+            next(ret) {
+                const update = ret.data.subsHeartBeat;
+                console.log(`[WM] heartbeat#${update['beat_num']} received at ${new Date()}`);
+            },
+            error(err) {
+                console.log(ERROR(`[WM] error: failed to subscribe: ${err}`));
+            }
+        });
     }
 
     async start_platform_grids(unfinished_sessions)
@@ -320,7 +338,7 @@ class Metriffic
                                     max_jobs: session.maxJobs,
                                     state: session.state,
                                 };
-                            if(unfinished_sessions.has(uf_session.platform_id)) 
+                            if(unfinished_sessions.has(uf_session.platform_id))
                                 unfinished_sessions.get(uf_session.platform_id).push(uf_session);
                             else
                                 unfinished_sessions.set(uf_session.platform_id, [uf_session]);
